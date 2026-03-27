@@ -75,7 +75,9 @@ async function processWebhook(body: any): Promise<void> {
     });
 
     if (message.type === 'text') {
-      const text = message.text?.body?.trim() || '';
+      // Sanitize: strip HTML tags and control characters
+      const rawText = message.text?.body?.trim() || '';
+      const text = rawText.replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
 
       if (text.startsWith('/')) {
         // Command message
