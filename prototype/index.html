@@ -1,0 +1,1576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WataSeat — WhatsApp Booking Experience</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ocean-deep: #020b18;
+    --ocean-mid: #0a1628;
+    --ocean-surface: #0f2035;
+    --teal-glow: #00d4aa;
+    --teal-dim: #00a88640;
+    --aqua: #4ecdc4;
+    --foam: #e0f7f4;
+    --sand: #f5e6c8;
+    --coral: #ff6b6b;
+    --wa-dark-bg: #0b141a;
+    --wa-chat-bg: #0b141a;
+    --wa-incoming: #1f2c34;
+    --wa-outgoing: #005c4b;
+    --wa-green: #00a884;
+    --wa-light-text: #e9edef;
+    --wa-dim-text: #8696a0;
+    --wa-link: #53bdeb;
+    --wa-header: #1f2c34;
+    --wa-button-bg: #182229;
+    --wa-button-text: #53bdeb;
+    --wa-time: #ffffff99;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html {
+    scroll-behavior: smooth;
+    scrollbar-width: thin;
+    scrollbar-color: var(--teal-glow) var(--ocean-deep);
+  }
+
+  body {
+    font-family: 'Outfit', sans-serif;
+    background: var(--ocean-deep);
+    color: var(--foam);
+    overflow-x: hidden;
+    line-height: 1.6;
+  }
+
+  /* ═══════════════ HERO ═══════════════ */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% 0%, #005c4b22 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 20% 80%, #00d4aa08 0%, transparent 50%),
+      radial-gradient(ellipse 60% 40% at 80% 80%, #4ecdc408 0%, transparent 50%);
+    pointer-events: none;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--teal-dim);
+    border: 1px solid var(--teal-glow);
+    border-radius: 100px;
+    padding: 8px 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--teal-glow);
+    letter-spacing: 0.5px;
+    margin-bottom: 32px;
+    animation: fadeDown 0.8s ease-out;
+  }
+
+  .hero h1 {
+    font-size: clamp(3.5rem, 8vw, 7rem);
+    font-weight: 900;
+    letter-spacing: -3px;
+    line-height: 0.95;
+    margin-bottom: 24px;
+    animation: fadeDown 0.8s ease-out 0.1s both;
+  }
+
+  .hero h1 .gradient-text {
+    background: linear-gradient(135deg, var(--teal-glow), var(--aqua), var(--sand));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero p {
+    font-size: 1.25rem;
+    font-weight: 300;
+    color: var(--wa-dim-text);
+    max-width: 580px;
+    margin-bottom: 48px;
+    animation: fadeDown 0.8s ease-out 0.2s both;
+  }
+
+  .hero-scroll {
+    animation: fadeDown 0.8s ease-out 0.4s both;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: var(--wa-dim-text);
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .hero-scroll .arrow {
+    width: 24px;
+    height: 24px;
+    border-right: 2px solid var(--teal-glow);
+    border-bottom: 2px solid var(--teal-glow);
+    transform: rotate(45deg);
+    animation: bounce 2s infinite;
+  }
+
+  /* ═══════════════ WAVE DIVIDER ═══════════════ */
+  .wave-divider {
+    width: 100%;
+    height: 80px;
+    position: relative;
+    overflow: hidden;
+  }
+  .wave-divider svg {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 80px;
+  }
+
+  /* ═══════════════ SCENES ═══════════════ */
+  .scene {
+    padding: 80px 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .scene-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--teal-glow);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.6s ease-out;
+  }
+
+  .scene-title {
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 800;
+    letter-spacing: -1.5px;
+    margin-bottom: 12px;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.6s ease-out 0.1s;
+  }
+
+  .scene-desc {
+    font-size: 1.05rem;
+    color: var(--wa-dim-text);
+    max-width: 600px;
+    margin-bottom: 48px;
+    font-weight: 300;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.6s ease-out 0.2s;
+  }
+
+  .scene.visible .scene-number,
+  .scene.visible .scene-title,
+  .scene.visible .scene-desc {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .phones-row {
+    display: flex;
+    gap: 48px;
+    justify-content: center;
+    flex-wrap: wrap;
+    opacity: 0;
+    transform: translateY(30px);
+    transition: all 0.7s ease-out 0.3s;
+  }
+
+  .scene.visible .phones-row {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .phone-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .phone-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--wa-dim-text);
+  }
+
+  .phone-label.captain { color: var(--sand); }
+  .phone-label.guest { color: var(--aqua); }
+  .phone-label.group { color: var(--teal-glow); }
+
+  /* ═══════════════ PHONE FRAME ═══════════════ */
+  .phone {
+    width: 340px;
+    border-radius: 40px;
+    background: #000;
+    padding: 12px;
+    box-shadow:
+      0 0 0 1px #1a1a1a,
+      0 20px 60px rgba(0,0,0,0.6),
+      0 0 80px var(--teal-dim);
+    position: relative;
+  }
+
+  .phone-inner {
+    border-radius: 30px;
+    overflow: hidden;
+    background: var(--wa-chat-bg);
+  }
+
+  /* WhatsApp header bar */
+  .wa-header {
+    background: var(--wa-header);
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid #ffffff08;
+  }
+
+  .wa-header .back-arrow {
+    color: var(--wa-dim-text);
+    font-size: 1.2rem;
+  }
+
+  .wa-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+
+  .wa-avatar.bot {
+    background: linear-gradient(135deg, #005c4b, #00a884);
+  }
+  .wa-avatar.captain {
+    background: linear-gradient(135deg, #8b6914, #d4a333);
+  }
+  .wa-avatar.group {
+    background: linear-gradient(135deg, #1f6feb, #58a6ff);
+  }
+  .wa-avatar.guest {
+    background: linear-gradient(135deg, #6b3fa0, #a855f7);
+  }
+
+  .wa-header-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .wa-header-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--wa-light-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .wa-header-status {
+    font-size: 0.72rem;
+    color: var(--wa-dim-text);
+  }
+
+  /* Chat area */
+  .wa-chat {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 280px;
+    background:
+      url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.015'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"),
+      var(--wa-chat-bg);
+  }
+
+  /* Date pill */
+  .wa-date {
+    align-self: center;
+    background: #182229;
+    color: var(--wa-dim-text);
+    font-size: 0.7rem;
+    padding: 5px 12px;
+    border-radius: 8px;
+    margin: 8px 0;
+    font-weight: 500;
+  }
+
+  /* System message */
+  .wa-system {
+    align-self: center;
+    background: #182229cc;
+    color: var(--wa-dim-text);
+    font-size: 0.72rem;
+    padding: 6px 14px;
+    border-radius: 8px;
+    text-align: center;
+    margin: 6px 0;
+    max-width: 85%;
+    font-style: italic;
+  }
+
+  /* Message bubbles */
+  .msg {
+    max-width: 88%;
+    padding: 7px 10px 4px;
+    border-radius: 10px;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: var(--wa-light-text);
+    position: relative;
+    word-wrap: break-word;
+  }
+
+  .msg.in {
+    align-self: flex-start;
+    background: var(--wa-incoming);
+    border-top-left-radius: 3px;
+  }
+
+  .msg.out {
+    align-self: flex-end;
+    background: var(--wa-outgoing);
+    border-top-right-radius: 3px;
+  }
+
+  .msg .sender {
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-bottom: 2px;
+    display: block;
+  }
+
+  .msg .sender.bot-name { color: var(--wa-green); }
+  .msg .sender.captain-name { color: var(--sand); }
+  .msg .sender.guest-name { color: #a855f7; }
+
+  .msg .time {
+    float: right;
+    font-size: 0.62rem;
+    color: var(--wa-time);
+    margin-left: 8px;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .msg .time .ticks {
+    color: #53bdeb;
+    font-size: 0.7rem;
+  }
+
+  /* Interactive card */
+  .wa-card {
+    background: var(--wa-incoming);
+    border-radius: 10px;
+    overflow: hidden;
+    max-width: 88%;
+    align-self: flex-start;
+  }
+
+  .wa-card.from-bot {
+    align-self: flex-start;
+  }
+
+  .wa-card-header {
+    padding: 8px 12px 4px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--wa-light-text);
+  }
+
+  .wa-card-body {
+    padding: 4px 12px 6px;
+    font-size: 0.8rem;
+    color: var(--wa-light-text);
+    line-height: 1.5;
+    white-space: pre-line;
+  }
+
+  .wa-card-body .time {
+    float: right;
+    font-size: 0.62rem;
+    color: var(--wa-time);
+    margin-left: 8px;
+    margin-top: 4px;
+  }
+
+  .wa-card-footer {
+    padding: 4px 12px 8px;
+    font-size: 0.68rem;
+    color: var(--wa-dim-text);
+    font-style: italic;
+  }
+
+  .wa-card-btn {
+    border-top: 1px solid #ffffff10;
+    padding: 10px;
+    text-align: center;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--wa-button-text);
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .wa-card-btn:hover {
+    background: #ffffff08;
+  }
+
+  .wa-card .sender {
+    padding: 8px 12px 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--wa-green);
+  }
+
+  /* URL button style */
+  .wa-url-btn {
+    border-top: 1px solid #ffffff10;
+    padding: 10px;
+    text-align: center;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--wa-button-text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .wa-url-btn .link-icon {
+    font-size: 0.7rem;
+  }
+
+  /* Quick reply buttons row */
+  .wa-quick-replies {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+    max-width: 88%;
+    align-self: flex-start;
+  }
+
+  .wa-quick-reply {
+    background: var(--wa-button-bg);
+    border: 1px solid #ffffff12;
+    border-radius: 20px;
+    padding: 7px 16px;
+    font-size: 0.8rem;
+    color: var(--wa-button-text);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  /* Payment mock */
+  .apple-pay-mock {
+    background: #1c1c1e;
+    border-radius: 14px;
+    padding: 20px;
+    margin: 8px 0;
+    text-align: center;
+  }
+
+  .apple-pay-mock .amount {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+
+  .apple-pay-mock .to {
+    font-size: 0.8rem;
+    color: #8e8e93;
+    margin-bottom: 16px;
+  }
+
+  .apple-pay-btn {
+    background: #fff;
+    color: #000;
+    border: none;
+    border-radius: 12px;
+    padding: 14px 40px;
+    font-size: 1rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+
+  .apple-pay-btn .apple-logo {
+    font-size: 1.2rem;
+  }
+
+  /* Stripe hold indicator */
+  .hold-indicator {
+    background: #1c1c1e;
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin: 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.8rem;
+  }
+
+  .hold-indicator .icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ff9500, #ff6b00);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+
+  .hold-indicator .hold-text {
+    color: #8e8e93;
+  }
+  .hold-indicator .hold-amount {
+    color: #fff;
+    font-weight: 600;
+  }
+
+  /* ═══════════════ TEMPLATE REFERENCE ═══════════════ */
+  .templates-section {
+    padding: 80px 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .templates-section .scene-number,
+  .templates-section .scene-title,
+  .templates-section .scene-desc {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.6s ease-out;
+  }
+
+  .templates-section.visible .scene-number,
+  .templates-section.visible .scene-title,
+  .templates-section.visible .scene-desc {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .template-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 20px;
+    opacity: 0;
+    transform: translateY(30px);
+    transition: all 0.7s ease-out 0.3s;
+  }
+
+  .templates-section.visible .template-grid {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .template-card {
+    background: var(--ocean-surface);
+    border: 1px solid #ffffff0a;
+    border-radius: 16px;
+    padding: 24px;
+    transition: all 0.3s ease;
+  }
+
+  .template-card:hover {
+    border-color: var(--teal-glow);
+    box-shadow: 0 0 30px var(--teal-dim);
+    transform: translateY(-2px);
+  }
+
+  .template-card .t-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--teal-glow);
+    margin-bottom: 4px;
+  }
+
+  .template-card .t-category {
+    font-size: 0.7rem;
+    color: var(--wa-dim-text);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .template-card .t-body {
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: var(--wa-light-text);
+    background: var(--wa-incoming);
+    border-radius: 10px;
+    padding: 14px;
+    white-space: pre-line;
+    margin-bottom: 12px;
+  }
+
+  .template-card .t-vars {
+    font-size: 0.72rem;
+    color: var(--wa-dim-text);
+    line-height: 1.5;
+  }
+
+  .template-card .t-vars span {
+    color: var(--sand);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .template-card .t-button {
+    margin-top: 10px;
+    display: inline-block;
+    background: var(--wa-button-bg);
+    border: 1px solid #ffffff12;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 0.78rem;
+    color: var(--wa-button-text);
+  }
+
+  /* ═══════════════ FOOTER ═══════════════ */
+  .footer {
+    text-align: center;
+    padding: 60px 24px;
+    color: var(--wa-dim-text);
+    font-size: 0.85rem;
+    border-top: 1px solid #ffffff08;
+  }
+
+  .footer .logo-text {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--teal-glow);
+    margin-bottom: 8px;
+  }
+
+  /* ═══════════════ ANIMATIONS ═══════════════ */
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes bounce {
+    0%, 20%, 50%, 80%, 100% { transform: rotate(45deg) translateY(0); }
+    40% { transform: rotate(45deg) translateY(-8px); }
+    60% { transform: rotate(45deg) translateY(-4px); }
+  }
+
+  /* ═══════════════ RESPONSIVE ═══════════════ */
+  @media (max-width: 768px) {
+    .phone { width: 300px; }
+    .phones-row { gap: 32px; }
+    .scene { padding: 60px 16px; }
+    .template-grid { grid-template-columns: 1fr; }
+  }
+
+  /* Glow line between scenes */
+  .scene-divider {
+    width: 1px;
+    height: 80px;
+    background: linear-gradient(to bottom, transparent, var(--teal-glow), transparent);
+    margin: 0 auto;
+    opacity: 0.3;
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════ HERO ════════════════════════ -->
+<section class="hero">
+  <div class="hero-badge">🚢 WhatsApp Experience Preview</div>
+  <h1><span class="gradient-text">WataSeat</span></h1>
+  <p>See how captains and guests interact with the booking bot — every WhatsApp screen, every message, every tap.</p>
+  <div class="hero-scroll">
+    <span>Scroll to explore</span>
+    <div class="arrow"></div>
+  </div>
+</section>
+
+<!-- ════════════════════════ SCENE 1: ONBOARDING ════════════════════════ -->
+<div class="scene-divider"></div>
+<section class="scene" data-scene>
+  <div class="scene-number">Scene 01</div>
+  <div class="scene-title">Captain Onboarding</div>
+  <div class="scene-desc">A new captain messages WataSeat for the first time. The bot walks them through setup — name, boat, license, and Stripe account — all inside WhatsApp.</div>
+
+  <div class="phones-row">
+    <div class="phone-col">
+      <span class="phone-label captain">Captain's DM</span>
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="wa-header">
+            <span class="back-arrow">‹</span>
+            <div class="wa-avatar bot">🚢</div>
+            <div class="wa-header-info">
+              <div class="wa-header-name">WataSeat</div>
+              <div class="wa-header-status">online</div>
+            </div>
+          </div>
+          <div class="wa-chat">
+            <div class="wa-date">Today</div>
+
+            <div class="msg out">
+              Hi, I want to use WataSeat for my boat trips
+              <span class="time">9:02 AM <span class="ticks">✓✓</span></span>
+            </div>
+
+            <div class="msg in">
+              <span class="sender bot-name">WataSeat 🚢</span>
+              Welcome aboard! 🎉 Let's get you set up. It takes about 2 minutes.
+
+What's your full name?
+              <span class="time">9:02 AM</span>
+            </div>
+
+            <div class="msg out">
+              Captain Ahmed Al Mansouri
+              <span class="time">9:03 AM <span class="ticks">✓✓</span></span>
+            </div>
+
+            <div class="msg in">
+              <span class="sender bot-name">WataSeat 🚢</span>
+              Great, Captain Ahmed! 🚢 What's your boat's name?
+              <span class="time">9:03 AM</span>
+            </div>
+
+            <div class="msg out">
+              Sea Pearl
+              <span class="time">9:03 AM <span class="ticks">✓✓</span></span>
+            </div>
+
+            <div class="msg in">
+              <span class="sender bot-name">WataSeat 🚢</span>
+              Beautiful name! Now I need your UAE maritime license number for verification.
+              <span class="time">9:03 AM</span>
+            </div>
+
+            <div class="msg out">
+              ML-2024-DXB-4821
+              <span class="time">9:04 AM <span class="ticks">✓✓</span></span>
+            </div>
+
+            <div class="msg in">
+              <span class="sender bot-name">WataSeat 🚢</span>
+              Almost done! Last step — connect your bank account so you can receive payouts. Tap below to set up with Stripe (takes 3 minutes):
+              <span class="time">9:04 AM</span>
+            </div>
+
+            <div class="wa-card from-bot" style="margin-top: 4px;">
+              <div class="wa-url-btn">
+                <span class="link-icon">🔗</span>
+                Connect Bank Account (Stripe)
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ SCENE 2: ONBOARDING COMPLETE ════════════════════════ -->
+<div class="scene-divider"></div>
+<section class="scene" data-scene>
+  <div class="scene-number">Scene 02</div>
+  <div class="scene-title">Stripe Connected</div>
+  <div class="scene-desc">Captain completes Stripe KYC. The bot confirms they're live and tells them to add the bot to their WhatsApp group.</div>
+
+  <div class="phones-row">
+    <div class="phone-col">
+      <span class="phone-label captain">Captain's DM</span>
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="wa-header">
+            <span class="back-arrow">‹</span>
+            <div class="wa-avatar bot">🚢</div>
+            <div class="wa-header-info">
+              <div class="wa-header-name">WataSeat</div>
+              <div class="wa-header-status">online</div>
+            </div>
+          </div>
+          <div class="wa-chat">
+            <div class="wa-date">Today</div>
+
+            <div class="msg in">
+              <span class="sender bot-name">WataSeat 🚢</span>
+              ✅ Bank account connected! You're all set, Captain Ahmed.
+
+Here's what you can do now:
+
+1️⃣ Add me to your WhatsApp group — just search "WataSeat" in your contacts and add me like any participant
+
+2️⃣ Type <b>/trip</b> in the group to create your first trip
+
+3️⃣ I'll handle bookings, payments, and notifications
+
+Your guests pay via Apple Pay. You get 90% to your bank account automatically. 🎉
+              <span class="time">9:12 AM</span>
+            </div>
+
+            <div class="msg out">
+              Amazing! Adding you to my fishing group now 🎣
+              <span class="time">9:13 AM <span class="ticks">✓✓</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone-col">
+      <span class="phone-label group">Fishing Group</span>
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="wa-header">
+            <span class="back-arrow">‹</span>
+            <div class="wa-avatar group">🐟</div>
+            <div class="wa-header-info">
+              <div class="wa-header-name">Dubai Fishing Crew 🎣</div>
+              <div class="wa-header-status">Ahmed, Khalid, Sara, +12</div>
+            </div>
+          </div>
+          <div class="wa-chat">
+            <div class="wa-date">Today</div>
+
+            <div class="wa-system">Captain Ahmed added WataSeat 🚢</div>
+
+            <div class="msg in">
+              <span class="sender bot-name">WataSeat 🚢</span>
+              Hi! I'm WataSeat 🚢 — I help book seats for boat trips right here in WhatsApp.
+
+Captain Ahmed can type /trip to post a trip. Group members can book and pay with one tap!
+
+Type /help to see all commands.
+              <span class="time">9:14 AM</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ SCENE 3: TRIP CREATION ════════════════════════ -->
+<div class="scene-divider"></div>
+<section class="scene" data-scene>
+  <div class="scene-number">Scene 03</div>
+  <div class="scene-title">Creating a Trip</div>
+  <div class="scene-desc">Captain types /trip in the group. The bot starts a private wizard in DM, then posts the trip card in the group for everyone to see.</div>
+
+  <div class="phones-row">
+    <div class="phone-col">
+      <span class="phone-label captain">Captain's DM (Wizard)</span>
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="wa-header">
+            <span class="back-arrow">‹</span>
+            <div class="wa-avatar bot">🚢</div>
+            <div class="wa-header-info">
+              <div class="wa-header-name">WataSeat</div>
+              <div class="wa-header-status">online</div>
+            </div>
+          </div>
+          <div class="wa-chat">
+            <div class="wa-date">Today</div>
+
+            <div class="msg in">
+              <span class="sender bot-name">WataSeat 🚢</span>
+              Let's create a trip! 🎣
+
+What type of trip?
+              <span class="time">10:00 AM</span>
+            </div>
+
+            <div class="wa-quick-replies">
+              <span class="wa-quick-reply">Fishing</span>
+              <span class="wa-quick-reply">Diving</span>
+              <span class="wa-quick-reply">Cruise</span>
+            </div>
+
+            <div class="msg out">Fishing<span class="time">10:00 AM <span class="ticks">✓✓</span></span></div>
+
+            <div class="msg in"><span class="sender bot-name">WataSeat 🚢</span>📅 What date?<span class="time">10:00 AM</span></div>
+            <div class="msg out">Friday 4 April<span class="time">10:01 AM <span class="ticks">✓✓</span></span></div>
+
+            <div class="msg in"><span class="sender bot-name">WataSeat 🚢</span>⏰ Departure time?<span class="time">10:01 AM</span></div>
+            <div class="msg out">6:00 AM<span class="time">10:01 AM <span class="ticks">✓✓</span></span></div>
+
+            <div class="msg in"><span class="sender bot-name">WataSeat 🚢</span>⏱ How long? (hours)<span class="time">10:01 AM</span></div>
+            <div class="msg out">4 hours<span class="time">10:01 AM <span class="ticks">✓✓</span></span></div>
+
+            <div class="msg in"><span class="sender bot-name">WataSeat 🚢</span>📍 Meeting point?<span class="time">10:01 AM</span></div>
+            <div class="msg out">Dubai Marina, Dock 7<span class="time">10:02 AM <span class="ticks">✓✓</span></span></div>
+
+            <div class="msg in"><span class="sender bot-name">WataSeat 🚢</span>👥 Max seats?<span class="time">10:02 AM</span></div>
+            <div class="msg out">8<span class="time">10:02 AM <span class="ticks">✓✓</span></span></div>
+
+            <div class="msg in"><span class="sender bot-name">WataSeat 🚢</span>🎯 Minimum passengers needed? (trip won't run below this)<span class="time">10:02 AM</span></div>
+            <div class="msg out">5<span class="time">10:02 AM <span class="ticks">✓✓</span></span></div>
+
+            <div class="msg in"><span class="sender bot-name">WataSeat 🚢</span>💰 Price per person? (AED)<span class="time">10:02 AM</span></div>
+            <div class="msg out">250<span class="time">10:03 AM <span class="ticks">✓✓</span></span></div>
+
+            <div class="msg in">
+              <span class="sender bot-name">WataSeat 🚢</span>
+              Here's your trip:
+
+🎣 Fishing Trip
+📅 Fri 4 April, 6:00 AM (4h)
+📍 Dubai Marina, Dock 7
+👥 8 seats (min 5 to confirm)
+💰 AED 250/person
+
+Post to Dubai Fishing Crew 🎣?
+              <span class="time">10:03 AM</span>
+            </div>
+
+            <div class="wa-quick-replies">
+              <span class="wa-quick-reply">✅ Post it!</span>
+              <span class="wa-quick-reply">✏️ Edit</span>
+              <span class="wa-quick-reply">❌ Cancel</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone-col">
+      <span class="phone-label group">Group Chat</span>
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="wa-header">
+            <span class="back-arrow">‹</span>
+            <div class="wa-avatar group">🐟</div>
+            <div class="wa-header-info">
+              <div class="wa-header-name">Dubai Fishing Crew 🎣</div>
+              <div class="wa-header-status">Ahmed, Khalid, Sara, +12</div>
+            </div>
+          </div>
+          <div class="wa-chat" style="padding-top: 20px;">
+            <div class="wa-date">Today</div>
+
+            <div class="wa-card from-bot">
+              <div class="sender" style="color: var(--wa-green);">WataSeat 🚢</div>
+              <div class="wa-card-header">🚢 Fishing Trip — Fri 4 April</div>
+              <div class="wa-card-body">📍 Dubai Marina, Dock 7
+⏰ 6:00 AM departure (4 hours)
+💰 AED 250/person
+👥 0/8 seats filled (need 5 min)
+
+⚡ Book now — no charge unless trip confirms!<span class="time">10:04 AM</span></div>
+              <div class="wa-card-footer">WataSeat 🌊 Tap to secure your spot</div>
+              <div class="wa-card-btn">🎣 Book My Seat</div>
+            </div>
+
+            <div class="msg in" style="margin-top: 12px;">
+              <span class="sender" style="color: #e9a820;">Khalid</span>
+              Let's go!! 🐟🔥
+              <span class="time">10:06 AM</span>
+            </div>
+
+            <div class="msg in">
+              <span class="sender" style="color: #58a6ff;">Sara</span>
+              I'm in! Tapping now
+              <span class="time">10:07 AM</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ SCENE 4: BOOKING + PAYMENT ════════════════════════ -->
+<div class="scene-divider"></div>
+<section class="scene" data-scene>
+  <div class="scene-number">Scene 04</div>
+  <div class="scene-title">Booking &amp; Payment</div>
+  <div class="scene-desc">Guest taps "Book My Seat" in the group. The bot DMs them privately with a secure payment link. They pay with Apple Pay — card is held, not charged.</div>
+
+  <div class="phones-row">
+    <div class="phone-col">
+      <span class="phone-label guest">Guest's DM</span>
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="wa-header">
+            <span class="back-arrow">‹</span>
+            <div class="wa-avatar bot">🚢</div>
+            <div class="wa-header-info">
+              <div class="wa-header-name">WataSeat</div>
+              <div class="wa-header-status">online</div>
+            </div>
+          </div>
+          <div class="wa-chat">
+            <div class="wa-date">Today</div>
+
+            <div class="wa-card from-bot">
+              <div class="sender" style="color: var(--wa-green);">WataSeat 🚢</div>
+              <div class="wa-card-body">Hi Sara! 👋 Here's your secure payment link for the Fishing trip on Fri 4 April.
+
+Amount: <b>AED 250</b>
+
+Your card will be held but NOT charged until 5 seats are confirmed. No payment if the trip doesn't run.
+
+Link expires in 24h:<span class="time">10:08 AM</span></div>
+              <div class="wa-card-footer">WataSeat — Your seat, your terms.</div>
+              <div class="wa-url-btn">
+                <span class="link-icon">🔗</span>
+                Pay Now (Apple / Google Pay)
+              </div>
+            </div>
+
+            <div class="apple-pay-mock">
+              <div class="amount">AED 250.00</div>
+              <div class="to">WataSeat — Fishing Trip Fri 4 Apr<br>Sea Pearl • Captain Ahmed</div>
+              <button class="apple-pay-btn">
+                <span class="apple-logo"></span> Pay
+              </button>
+            </div>
+
+            <div class="hold-indicator">
+              <div class="icon">🔒</div>
+              <div>
+                <div class="hold-amount">AED 250.00 — Hold</div>
+                <div class="hold-text">Pending authorization • Not yet charged</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone-col">
+      <span class="phone-label guest">Guest's DM (Confirmed)</span>
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="wa-header">
+            <span class="back-arrow">‹</span>
+            <div class="wa-avatar bot">🚢</div>
+            <div class="wa-header-info">
+              <div class="wa-header-name">WataSeat</div>
+              <div class="wa-header-status">online</div>
+            </div>
+          </div>
+          <div class="wa-chat">
+            <div class="wa-date">Today</div>
+
+            <div class="msg in">
+              <span class="sender bot-name">WataSeat 🚢</span>
+              ✅ Seat secured, Sara!
+
+Trip: Fishing on Fri 4 April
+Your seat: #3
+Booked: 3/8 seats
+
+Your card is authorized (not charged yet). We charge everyone at once when all 5 seats fill up.
+
+We'll update you as soon as the trip is confirmed! 🌊
+              <span class="time">10:09 AM</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ SCENE 5: GROUP PROGRESS ════════════════════════ -->
+<div class="scene-divider"></div>
+<section class="scene" data-scene>
+  <div class="scene-number">Scene 05</div>
+  <div class="scene-title">Seats Filling Up</div>
+  <div class="scene-desc">As guests book, the group gets live updates. The captain can check status anytime with /status.</div>
+
+  <div class="phones-row">
+    <div class="phone-col">
+      <span class="phone-label group">Group Chat</span>
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="wa-header">
+            <span class="back-arrow">‹</span>
+            <div class="wa-avatar group">🐟</div>
+            <div class="wa-header-info">
+              <div class="wa-header-name">Dubai Fishing Crew 🎣</div>
+              <div class="wa-header-status">Ahmed, Khalid, Sara, +12</div>
+            </div>
+          </div>
+          <div class="wa-chat">
+            <div class="wa-date">Today</div>
+
+            <div class="msg in">
+              <span class="sender bot-name">WataSeat 🚢</span>
+              🎣 Fishing Trip — Fri 4 Apr
+👥 3/8 seats booked (need 2 more to confirm!)
+              <span class="time">10:30 AM</span>
+            </div>
+
+            <div class="msg in">
+              <span class="sender bot-name">WataSeat 🚢</span>
+              🎣 Fishing Trip — Fri 4 Apr
+👥 4/8 seats booked — just 1 more! 🔥
+              <span class="time">2:15 PM</span>
+            </div>
+
+            <div class="msg in" style="margin-top: 8px;">
+              <span class="sender" style="color: #e9a820;">Khalid</span>
+              Come on guys, one more! Don't let this one slip 😤
+              <span class="time">2:18 PM</span>
+            </div>
+
+            <div class="msg in">
+              <span class="sender bot-name">WataSeat 🚢</span>
+              🎣 Fishing Trip — Fri 4 Apr
+👥 5/8 seats booked — ✅ Minimum reached!
+
+Trip is confirmed. More seats still available!
+              <span class="time">4:42 PM</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone-col">
+      <span class="phone-label captain">Captain /status</span>
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="wa-header">
+            <span class="back-arrow">‹</span>
+            <div class="wa-avatar bot">🚢</div>
+            <div class="wa-header-info">
+              <div class="wa-header-name">WataSeat</div>
+              <div class="wa-header-status">online</div>
+            </div>
+          </div>
+          <div class="wa-chat">
+            <div class="wa-date">Today</div>
+
+            <div class="msg out">
+              /status abc123
+              <span class="time">5:00 PM <span class="ticks">✓✓</span></span>
+            </div>
+
+            <div class="msg in">
+              <span class="sender bot-name">WataSeat 🚢</span>
+              📊 Trip abc123 — Fishing
+
+📅 Fri 4 April, 6:00 AM
+📍 Dubai Marina, Dock 7
+💰 AED 250/person
+👥 5/8 seats (min 5 ✅)
+Status: ✅ CONFIRMED
+
+Bookings:
+1. Sara — ✅ Authorized
+2. Khalid — ✅ Authorized
+3. Omar — ✅ Authorized
+4. Fatima — ✅ Authorized
+5. Rashid — ✅ Authorized
+
+Revenue: AED 1,250
+Your payout (90%): AED 1,125
+Platform fee (10%): AED 125
+              <span class="time">5:00 PM</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ SCENE 6: THRESHOLD REACHED ════════════════════════ -->
+<div class="scene-divider"></div>
+<section class="scene" data-scene>
+  <div class="scene-number">Scene 06</div>
+  <div class="scene-title">Threshold Reached — Cards Charged</div>
+  <div class="scene-desc">When enough guests book, all cards are charged simultaneously. The captain gets a daily summary every morning.</div>
+
+  <div class="phones-row">
+    <div class="phone-col">
+      <span class="phone-label guest">Guest's DM</span>
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="wa-header">
+            <span class="back-arrow">‹</span>
+            <div class="wa-avatar bot">🚢</div>
+            <div class="wa-header-info">
+              <div class="wa-header-name">WataSeat</div>
+              <div class="wa-header-status">online</div>
+            </div>
+          </div>
+          <div class="wa-chat">
+            <div class="wa-date">Today</div>
+
+            <div class="msg in">
+              <span class="sender bot-name">WataSeat 🚢</span>
+              🎉 Trip confirmed, Sara! All seats filled!
+
+Trip: Fishing on Fri 4 April
+Your card has been charged AED 250.
+Meeting point: Dubai Marina, Dock 7
+
+See you there! Have questions? Reply here or contact your captain directly.
+              <span class="time">4:43 PM</span>
+            </div>
+
+            <div class="msg out">
+              Can't wait! 🐟🎉
+              <span class="time">4:45 PM <span class="ticks">✓✓</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone-col">
+      <span class="phone-label captain">Captain Daily Summary</span>
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="wa-header">
+            <span class="back-arrow">‹</span>
+            <div class="wa-avatar bot">🚢</div>
+            <div class="wa-header-info">
+              <div class="wa-header-name">WataSeat</div>
+              <div class="wa-header-status">online</div>
+            </div>
+          </div>
+          <div class="wa-chat">
+            <div class="wa-date">Friday 4 Apr</div>
+
+            <div class="msg in">
+              <span class="sender bot-name">WataSeat 🚢</span>
+              Good morning, Captain Ahmed! ☀️
+
+Your upcoming trips:
+
+🎣 Fishing — TODAY 6:00 AM
+   📍 Dubai Marina, Dock 7
+   👥 6/8 seats ✅ Confirmed
+   💰 AED 1,350 (your payout)
+
+🤿 Diving — Sun 6 Apr 7:00 AM
+   📍 Fujairah Marina
+   👥 2/6 seats ⏳ Need 2 more
+   💰 AED 600 (if confirmed)
+
+Type /trips for details or /status [trip ID] to see bookings.
+              <span class="time">6:00 AM</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ SCENE 7: CANCELLATION ════════════════════════ -->
+<div class="scene-divider"></div>
+<section class="scene" data-scene>
+  <div class="scene-number">Scene 07</div>
+  <div class="scene-title">Trip Cancelled — No One Charged</div>
+  <div class="scene-desc">If the minimum isn't reached 12 hours before departure, the trip auto-cancels. All card holds are released — no one pays a dirham.</div>
+
+  <div class="phones-row">
+    <div class="phone-col">
+      <span class="phone-label group">Group Chat</span>
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="wa-header">
+            <span class="back-arrow">‹</span>
+            <div class="wa-avatar group">🐟</div>
+            <div class="wa-header-info">
+              <div class="wa-header-name">Dubai Fishing Crew 🎣</div>
+              <div class="wa-header-status">Ahmed, Khalid, Sara, +12</div>
+            </div>
+          </div>
+          <div class="wa-chat">
+            <div class="wa-date">Thursday 3 Apr</div>
+
+            <div class="msg in">
+              <span class="sender bot-name">WataSeat 🚢</span>
+              ❌ Trip cancelled — Diving on Sun 6 Apr
+
+Only 2 of 4 minimum passengers booked. No charges have been made — all card holds are released.
+
+Better luck next time! 🚢
+              <span class="time">7:00 PM</span>
+            </div>
+
+            <div class="msg in" style="margin-top: 8px;">
+              <span class="sender" style="color: #e9a820;">Khalid</span>
+              No worries, next time inshallah 🤲
+              <span class="time">7:05 PM</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone-col">
+      <span class="phone-label guest">Guest's DM</span>
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="wa-header">
+            <span class="back-arrow">‹</span>
+            <div class="wa-avatar bot">🚢</div>
+            <div class="wa-header-info">
+              <div class="wa-header-name">WataSeat</div>
+              <div class="wa-header-status">online</div>
+            </div>
+          </div>
+          <div class="wa-chat">
+            <div class="wa-date">Thursday 3 Apr</div>
+
+            <div class="msg in">
+              <span class="sender bot-name">WataSeat 🚢</span>
+              ⚠️ Trip cancelled, Sara.
+
+Unfortunately the Diving trip on Sun 6 Apr didn't reach the minimum of 4 passengers.
+
+Your card hold has been released. No charge has been made.
+
+We hope to see you on the next trip! 🚢
+              <span class="time">7:00 PM</span>
+            </div>
+
+            <div class="hold-indicator">
+              <div class="icon" style="background: linear-gradient(135deg, #34c759, #30d158);">✓</div>
+              <div>
+                <div class="hold-amount">AED 350.00 — Released</div>
+                <div class="hold-text">Hold removed • No charge made</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ SCENE 8: RE-AUTH ════════════════════════ -->
+<div class="scene-divider"></div>
+<section class="scene" data-scene>
+  <div class="scene-number">Scene 08</div>
+  <div class="scene-title">Re-Authorization (Day 6)</div>
+  <div class="scene-desc">If a trip is still open after 6 days, Stripe holds expire. The bot sends a new payment link automatically — the guest just taps and confirms again.</div>
+
+  <div class="phones-row">
+    <div class="phone-col">
+      <span class="phone-label guest">Guest's DM</span>
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="wa-header">
+            <span class="back-arrow">‹</span>
+            <div class="wa-avatar bot">🚢</div>
+            <div class="wa-header-info">
+              <div class="wa-header-name">WataSeat</div>
+              <div class="wa-header-status">online</div>
+            </div>
+          </div>
+          <div class="wa-chat">
+            <div class="wa-date">Wednesday 9 Apr</div>
+
+            <div class="wa-card from-bot">
+              <div class="sender" style="color: var(--wa-green);">WataSeat 🚢</div>
+              <div class="wa-card-body">Hi Sara, your seat reservation for Fishing on Fri 11 Apr is still active!
+
+To keep your spot, please renew your card authorization (your card still won't be charged until the trip confirms).
+
+New link:<span class="time">6:00 AM</span></div>
+              <div class="wa-url-btn">
+                <span class="link-icon">🔗</span>
+                Renew Authorization
+              </div>
+            </div>
+
+            <div class="msg in" style="margin-top: 8px;">
+              <span class="sender bot-name">WataSeat 🚢</span>
+              ✅ Renewed! Your seat is still secured. We'll update you when the trip confirms.
+              <span class="time">6:03 AM</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ TEMPLATE REFERENCE ════════════════════════ -->
+<div class="scene-divider"></div>
+<section class="templates-section" data-scene>
+  <div class="scene-number">Reference</div>
+  <div class="scene-title">All 7 Message Templates</div>
+  <div class="scene-desc">These are the exact templates to submit in Meta Developer Console. Copy the body text, set variables, and submit for approval.</div>
+
+  <div class="template-grid">
+    <!-- 1 -->
+    <div class="template-card">
+      <div class="t-name">trip_posted</div>
+      <div class="t-category">Utility • Quick Reply Button</div>
+      <div class="t-body">📍 New trip posted by {{1}}!
+
+🗓 {{2}}
+🚢 {{3}} | {{4}} seats available (min {{5}})
+💰 AED {{6}} per person
+📌 {{7}}
+
+Tap below to book your seat!</div>
+      <div class="t-vars">Variables: <span>captain_name</span>, <span>departure_date</span>, <span>trip_type</span>, <span>max_seats</span>, <span>threshold</span>, <span>price</span>, <span>meeting_point</span></div>
+      <div class="t-button">Quick Reply: "Book Now"</div>
+    </div>
+
+    <!-- 2 -->
+    <div class="template-card">
+      <div class="t-name">payment_link</div>
+      <div class="t-category">Utility • URL Button</div>
+      <div class="t-body">Hi {{1}}! Here's your secure payment link for the {{2}} trip on {{3}}.
+
+Amount: AED {{4}}
+
+Your card will be held but NOT charged until {{5}} seats are confirmed. No payment if the trip doesn't run.
+
+Link expires in 24h:</div>
+      <div class="t-vars">Variables: <span>guest_first_name</span>, <span>trip_type</span>, <span>departure_date</span>, <span>amount</span>, <span>threshold</span>
+Footer: "WataSeat — Your seat, your terms."</div>
+      <div class="t-button">URL: "Pay Now (Apple/Google Pay)"</div>
+    </div>
+
+    <!-- 3 -->
+    <div class="template-card">
+      <div class="t-name">booking_confirmed</div>
+      <div class="t-category">Utility</div>
+      <div class="t-body">✅ Seat secured, {{1}}!
+
+Trip: {{2}} on {{3}}
+Your seat: #{{4}}
+Booked: {{5}}/{{6}} seats
+
+Your card is authorized (not charged yet). We charge everyone at once when all {{6}} seats fill up.
+
+We'll update you as soon as the trip is confirmed! 🌊</div>
+      <div class="t-vars">Variables: <span>guest_first_name</span>, <span>trip_type</span>, <span>departure_date</span>, <span>seat_number</span>, <span>current_bookings</span>, <span>threshold</span></div>
+    </div>
+
+    <!-- 4 -->
+    <div class="template-card">
+      <div class="t-name">threshold_reached</div>
+      <div class="t-category">Utility</div>
+      <div class="t-body">🎉 Trip confirmed, {{1}}! All seats filled!
+
+Trip: {{2}} on {{3}}
+Your card has been charged AED {{4}}.
+Meeting point: {{5}}
+
+See you there! Have questions? Reply here or contact your captain directly.</div>
+      <div class="t-vars">Variables: <span>guest_first_name</span>, <span>trip_type</span>, <span>departure_date</span>, <span>amount</span>, <span>meeting_point</span></div>
+    </div>
+
+    <!-- 5 -->
+    <div class="template-card">
+      <div class="t-name">trip_cancelled</div>
+      <div class="t-category">Utility</div>
+      <div class="t-body">⚠️ Trip cancelled, {{1}}.
+
+Unfortunately the {{2}} trip on {{3}} didn't reach the minimum of {{4}} passengers.
+
+Your card hold has been released. No charge has been made.
+
+We hope to see you on the next trip! 🚢</div>
+      <div class="t-vars">Variables: <span>guest_first_name</span>, <span>trip_type</span>, <span>departure_date</span>, <span>threshold</span></div>
+    </div>
+
+    <!-- 6 -->
+    <div class="template-card">
+      <div class="t-name">reauth_required</div>
+      <div class="t-category">Utility • URL Button</div>
+      <div class="t-body">Hi {{1}}, your seat reservation for {{2}} on {{3}} is still active!
+
+To keep your spot, please renew your card authorization (your card still won't be charged until the trip confirms).
+
+New link:</div>
+      <div class="t-vars">Variables: <span>guest_first_name</span>, <span>trip_type</span>, <span>departure_date</span></div>
+      <div class="t-button">URL: Renew link</div>
+    </div>
+
+    <!-- 7 -->
+    <div class="template-card">
+      <div class="t-name">captain_daily_summary</div>
+      <div class="t-category">Utility</div>
+      <div class="t-body">Good morning, Captain {{1}}! ☀️
+
+Your upcoming trips:
+{{2}}
+
+Type /trips for details or /status [trip ID] to see bookings.</div>
+      <div class="t-vars">Variables: <span>captain_first_name</span>, <span>formatted_trip_list</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ FOOTER ════════════════════════ -->
+<div class="scene-divider"></div>
+<footer class="footer">
+  <div class="logo-text">WataSeat 🚢</div>
+  <p>WhatsApp-native boat booking • UAE</p>
+  <p style="margin-top: 16px; font-size: 0.75rem; opacity: 0.5;">Experience prototype — not connected to live services</p>
+</footer>
+
+<script>
+  // Intersection Observer for scroll-triggered animations
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, {
+    threshold: 0.15,
+    rootMargin: '0px 0px -50px 0px'
+  });
+
+  document.querySelectorAll('[data-scene]').forEach(scene => {
+    observer.observe(scene);
+  });
+</script>
+</body>
+</html>

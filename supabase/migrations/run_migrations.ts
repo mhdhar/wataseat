@@ -209,6 +209,12 @@ const migrations: { name: string; sql: string }[] = [
     `,
   },
   {
+    name: '007a_trips_add_location_url',
+    sql: `
+      ALTER TABLE trips ADD COLUMN IF NOT EXISTS location_url TEXT;
+    `,
+  },
+  {
     name: '007_notification_log',
     sql: `
       CREATE TABLE IF NOT EXISTS notification_log (

@@ -81,47 +81,48 @@ Submit at: Meta Developer Console → WhatsApp → Message Templates → Create 
 ### Template: `trip_posted`
 - Category: UTILITY
 - Language: English
-- Body: `"📍 New trip posted by {{1}}!\n\n🗓 {{2}}\n🚢 {{3}} | {{4}} seats available (min {{5}})\n💰 AED {{6}} per person\n📌 {{7}}\n\nTap below to book your seat!"`
-- Variables: captain_name, departure_date, trip_type, max_seats, threshold, price, meeting_point
+- Body: `"{{1}} is heading out on a {{2}} trip!\n\n{{3}}\n{{4}} seats available, minimum {{5}} to confirm\nAED {{6}} per person\nArea: {{7}}\n\nYour card is only charged if the trip confirms. Tap below to reserve your spot."`
+- Variables: captain_name, trip_type, departure_date_time, max_seats, threshold, price, area
 - Buttons: Quick Reply — "Book Now"
 
-### Template: `payment_link`
+### Template: `guest_payment` (formerly payment_link)
 - Category: UTILITY
 - Language: English
-- Body: `"Hi {{1}}! Here's your secure payment link for the {{2}} trip on {{3}}.\n\nAmount: AED {{4}}\n\nYour card will be held but NOT charged until {{5}} seats are confirmed. No payment if the trip doesn't run.\n\nLink expires in 24h:"`
+- Body: `"Hi {{1}}, here is your payment link for the {{2}} trip on {{3}}.\n\nAmount: AED {{4}}\n\nThis is an authorization hold only. Your card will not be charged unless {{5}} or more passengers confirm. If the trip does not run, the hold is released automatically.\n\nThe link expires in 24 hours."`
 - Footer: "WataSeat — Your seat, your terms."
 - Variables: guest_first_name, trip_type, departure_date, amount, threshold
-- Buttons: URL Button — "Pay Now (Apple/Google Pay)" → payment link URL
+- Buttons: URL Button — "Pay Securely" → payment link URL (dynamic)
 
 ### Template: `booking_confirmed`
 - Category: UTILITY
 - Language: English
-- Body: `"✅ Seat secured, {{1}}!\n\nTrip: {{2}} on {{3}}\nYour seat: #{{4}}\nBooked: {{5}}/{{6}} seats\n\nYour card is authorized (not charged yet). We charge everyone at once when all {{6}} seats fill up.\n\nWe'll update you as soon as the trip is confirmed! 🌊"`
+- Body: `"Your seat is reserved, {{1}}.\n\nTrip: {{2}} on {{3}}\nSeat number: {{4}}\nPassengers so far: {{5}} of {{6}} needed\n\nYour card has a hold but has not been charged. Once {{6}} passengers confirm, the trip is locked in and all cards are charged at once.\n\nWe will notify you as soon as the trip is confirmed."`
 - Variables: guest_first_name, trip_type, departure_date, seat_number, current_bookings, threshold
 
-### Template: `threshold_reached`
+### Template: `booking_charged` (formerly trip_confirmed)
 - Category: UTILITY
 - Language: English
-- Body: `"🎉 Trip confirmed, {{1}}! All seats filled!\n\nTrip: {{2}} on {{3}}\nYour card has been charged AED {{4}}.\nMeeting point: {{5}}\n\nSee you there! Have questions? Reply here or contact your captain directly."`
+- Body: `"Your trip is confirmed, {{1}}.\n\n{{2}} on {{3}}\nAmount charged: AED {{4}}\n\nMeeting point: {{5}}\n\nTap below for the exact location. See you there!"`
 - Variables: guest_first_name, trip_type, departure_date, amount, meeting_point
+- Buttons: URL Button — "Open Location" → Google Maps URL (dynamic)
 
 ### Template: `trip_cancelled`
 - Category: UTILITY
 - Language: English
-- Body: `"⚠️ Trip cancelled, {{1}}.\n\nUnfortunately the {{2}} trip on {{3}} didn't reach the minimum of {{4}} passengers.\n\nYour card hold has been released. No charge has been made.\n\nWe hope to see you on the next trip! 🚢"`
+- Body: `"Hi {{1}}, the {{2}} trip on {{3}} has been cancelled.\n\nThe minimum of {{4}} passengers was not reached. Your card hold has been released and no charge was made.\n\nWe hope to see you on the next one."`
 - Variables: guest_first_name, trip_type, departure_date, threshold
 
-### Template: `reauth_required`
+### Template: `hold_renewal` (formerly reauth_required)
 - Category: UTILITY
 - Language: English
-- Body: `"Hi {{1}}, your seat reservation for {{2}} on {{3}} is still active!\n\nTo keep your spot, please renew your card authorization (your card still won't be charged until the trip confirms).\n\nNew link:"`
+- Body: `"Hi {{1}}, your reservation for the {{2}} trip on {{3}} is still active.\n\nTo keep your seat, please renew your card authorization. Your card will not be charged until the trip confirms.\n\nTap below to renew."`
 - Variables: guest_first_name, trip_type, departure_date
-- Buttons: URL Button → new payment link
+- Buttons: URL Button — "Renew Hold" → new payment link (dynamic)
 
 ### Template: `captain_daily_summary`
 - Category: UTILITY
 - Language: English
-- Body: `"Good morning, Captain {{1}}! ☀️\n\nYour upcoming trips:\n{{2}}\n\nType /trips for details or /status [trip ID] to see bookings."`
+- Body: `"Good morning, Captain {{1}}.\n\nHere are your upcoming trips:\n{{2}}\n\nReply /trips for full details or /status followed by a trip ID to see bookings."`
 - Variables: captain_first_name, formatted_trip_list
 
 ---

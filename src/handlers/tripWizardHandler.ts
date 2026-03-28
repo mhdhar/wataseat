@@ -125,6 +125,23 @@ export async function handleTripWizardStep(
       }
 
       state.meeting_point = input;
+      state.step = 'location_url';
+      await saveState(from, state);
+
+      await sendTextMessage(from, '📍 Share the exact location as a Google Maps link.\n\nOpen Google Maps → find the spot → tap Share → Copy link → paste it here.\n\nThis link will be shared with guests only after the trip is confirmed.\n\nReply SKIP if you want to share it later.');
+      break;
+    }
+
+    case 'location_url': {
+      if (input.toUpperCase() === 'SKIP') {
+        state.location_url = undefined;
+      } else if (input.includes('google.com/maps') || input.includes('maps.app.goo.gl') || input.includes('goo.gl/maps')) {
+        state.location_url = input;
+      } else {
+        await sendTextMessage(from, "That doesn't look like a Google Maps link. Please paste a link from Google Maps, or reply SKIP to add it later.");
+        return;
+      }
+
       state.step = 'max_seats';
       await saveState(from, state);
 
@@ -184,9 +201,13 @@ export async function handleTripWizardStep(
       const formattedDate = date.toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' });
       const formattedTime = date.toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit' });
 
+      const locationLine = state.location_url
+        ? `\n🗺 Location: ${state.location_url} (shared on confirmation)`
+        : '\n🗺 Location: Will be shared later';
+
       await sendTextMessage(
         from,
-        `📋 Trip Summary\n\n🚢 Type: ${state.trip_type}\n📅 Date: ${formattedDate}\n⏰ Time: ${formattedTime}\n⏱ Duration: ${state.duration_hours}h\n📍 Meeting: ${state.meeting_point}\n👥 Seats: ${state.max_seats} max, ${state.threshold} minimum\n💰 Price: AED ${state.price_per_person_aed}/person\n\nReply YES to confirm and post, or NO to cancel.`
+        `📋 Trip Summary\n\n🚢 Type: ${state.trip_type}\n📅 Date: ${formattedDate}\n⏰ Time: ${formattedTime}\n⏱ Duration: ${state.duration_hours}h\n📍 Meeting: ${state.meeting_point}${locationLine}\n👥 Seats: ${state.max_seats} max, ${state.threshold} minimum\n💰 Price: AED ${state.price_per_person_aed}/person\n\nReply YES to confirm and post, or NO to cancel.`
       );
       break;
     }
@@ -206,6 +227,7 @@ export async function handleTripWizardStep(
           departure_at: departureAt,
           duration_hours: state.duration_hours,
           meeting_point: state.meeting_point,
+          location_url: state.location_url,
           max_seats: state.max_seats!,
           threshold: state.threshold!,
           price_per_person_aed: state.price_per_person_aed!,

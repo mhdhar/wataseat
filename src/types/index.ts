@@ -43,6 +43,7 @@ export interface Trip {
   departure_at: string;
   duration_hours: number | null;
   meeting_point: string | null;
+  location_url: string | null;
   max_seats: number;
   threshold: number;
   price_per_person_aed: number;
@@ -134,6 +135,7 @@ export interface CreateTripInput {
   departure_at: string;
   duration_hours?: number;
   meeting_point?: string;
+  location_url?: string;
   max_seats: number;
   threshold: number;
   price_per_person_aed: number;
@@ -163,7 +165,7 @@ export class WataSeatError extends Error {
 
 // Wizard state for trip creation (stored in Redis)
 export interface TripWizardState {
-  step: 'trip_type' | 'date' | 'time' | 'duration' | 'meeting_point' | 'max_seats' | 'threshold' | 'price' | 'confirm';
+  step: 'trip_type' | 'date' | 'time' | 'duration' | 'meeting_point' | 'location_url' | 'max_seats' | 'threshold' | 'price' | 'confirm';
   captain_id: string;
   group_id?: string;
   trip_type?: TripType;
@@ -171,6 +173,7 @@ export interface TripWizardState {
   departure_time?: string;
   duration_hours?: number;
   meeting_point?: string;
+  location_url?: string;
   max_seats?: number;
   threshold?: number;
   price_per_person_aed?: number;

@@ -107,6 +107,7 @@ CREATE TABLE trips (
   departure_at      TIMESTAMPTZ NOT NULL,               -- Date + time of departure
   duration_hours    NUMERIC(4, 1),                      -- e.g. 4.5 hours
   meeting_point     TEXT,
+  location_url      TEXT,                              -- Google Maps link (shared to guests on trip confirmation)
 
   -- Capacity and pricing
   max_seats         INT NOT NULL CHECK (max_seats >= 1),
