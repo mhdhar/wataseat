@@ -8,6 +8,7 @@ import { supabase } from './db/supabase';
 import { Redis } from '@upstash/redis';
 import whatsappRouter from './routes/whatsapp';
 import stripeRouter from './routes/stripe';
+import adminRouter from './routes/admin';
 import { startCronJobs } from './jobs/scheduler';
 import { sendTextMessage } from './services/whatsapp';
 
@@ -44,6 +45,7 @@ app.use(express.json());
 // Routes
 app.use('/webhooks/whatsapp', whatsappRouter);
 app.use('/webhooks/stripe', stripeRouter);
+app.use('/api/admin', adminRouter);
 
 // Health check
 app.get('/health', async (_req, res) => {
