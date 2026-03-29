@@ -19,6 +19,8 @@ export interface Captain {
   stripe_payouts_enabled: boolean;
   total_trips: number;
   total_revenue_aed: number;
+  bank_name: string | null;
+  is_suspended: boolean;
 }
 
 export interface WhatsAppGroup {
@@ -184,4 +186,27 @@ export interface CancelConfirmState {
   trip_id: string;
   trip_title: string;
   booking_count: number;
+}
+
+export type PayoutStatus = 'pending' | 'processing' | 'completed';
+
+export interface Payout {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  trip_id: string;
+  captain_id: string;
+  gross_amount: number;
+  commission_amount: number;
+  payout_amount: number;
+  status: PayoutStatus;
+  bank_reference: string | null;
+  processed_at: string | null;
+  whatsapp_notified: boolean;
+}
+
+export interface AdminSetting {
+  key: string;
+  value: string;
+  updated_at: string;
 }

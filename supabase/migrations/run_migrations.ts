@@ -236,6 +236,58 @@ const migrations: { name: string; sql: string }[] = [
       CREATE INDEX IF NOT EXISTS idx_notification_log_trip ON notification_log(trip_id);
     `,
   },
+  {
+    name: '008_payouts',
+    sql: `
+      CREATE TABLE IF NOT EXISTS payouts (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        trip_id UUID NOT NULL REFERENCES trips(id),
+        captain_id UUID NOT NULL REFERENCES captains(id),
+        gross_amount NUMERIC(10,2) NOT NULL,
+        commission_amount NUMERIC(10,2) NOT NULL,
+        payout_amount NUMERIC(10,2) NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        bank_reference TEXT,
+        processed_at TIMESTAMPTZ,
+        whatsapp_notified BOOLEAN NOT NULL DEFAULT false
+      );
+
+      DROP TRIGGER IF EXISTS payouts_updated_at ON payouts;
+      CREATE TRIGGER payouts_updated_at
+        BEFORE UPDATE ON payouts
+        FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+      CREATE INDEX IF NOT EXISTS idx_payouts_status ON payouts(status);
+      CREATE INDEX IF NOT EXISTS idx_payouts_captain ON payouts(captain_id);
+
+      ALTER TABLE payouts ENABLE ROW LEVEL SECURITY;
+    `,
+  },
+  {
+    name: '009_captains_bank_details',
+    sql: `
+      ALTER TABLE captains ADD COLUMN IF NOT EXISTS bank_name TEXT;
+      ALTER TABLE captains ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN NOT NULL DEFAULT false;
+    `,
+  },
+  {
+    name: '010_admin_settings',
+    sql: `
+      CREATE TABLE IF NOT EXISTS admin_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TIMESTAMPTZ DEFAULT now()
+      );
+
+      INSERT INTO admin_settings (key, value) VALUES
+        ('commission_percentage', '10'),
+        ('admin_whatsapp_number', ''),
+        ('payout_reminder_hours', '48')
+      ON CONFLICT (key) DO NOTHING;
+    `,
+  },
 ];
 
 async function run() {
