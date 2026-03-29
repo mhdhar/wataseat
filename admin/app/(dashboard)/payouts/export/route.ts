@@ -15,7 +15,8 @@ export async function GET(request: NextRequest) {
     .order('processed_at', { ascending: false });
 
   const header = 'Date Processed,Captain,Trip,Gross Amount (AED),Commission (AED),Payout Amount (AED),Bank Reference,WhatsApp Notified\n';
-  const rows = (payouts || []).map((p: any) => {
+  const rows = (payouts || []).map(// eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (p: any) => {
     const captain = p.captains as { display_name: string } | null;
     const trip = p.trips as { title: string } | null;
     return `${p.processed_at || ''},${(captain?.display_name || 'N/A').replace(/,/g, ' ')},${(trip?.title || 'N/A').replace(/,/g, ' ')},${p.gross_amount},${p.commission_amount},${p.payout_amount},${(p.bank_reference || '').replace(/,/g, ' ')},${p.whatsapp_notified ? 'Yes' : 'No'}`;

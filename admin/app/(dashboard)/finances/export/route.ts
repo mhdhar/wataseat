@@ -14,7 +14,8 @@ export async function GET(request: NextRequest) {
     .order('created_at', { ascending: false });
 
   const header = 'Date,Guest,Trip,Amount (AED),Commission (AED),Captain Payout (AED),Status\n';
-  const rows = (bookings || []).map((b: any) =>
+  const rows = (bookings || []).map(// eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (b: any) =>
     `${b.created_at},${(b.guest_name || 'N/A').replace(/,/g, ' ')},${(b.trips?.title || 'N/A').replace(/,/g, ' ')},${b.total_amount_aed},${b.platform_fee_aed || 0},${b.captain_payout_aed || 0},${b.status}`
   ).join('\n');
 
