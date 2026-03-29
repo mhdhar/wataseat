@@ -183,6 +183,44 @@ export async function getPayoutHistory() {
   return data || [];
 }
 
+export async function getCaptains(search?: string) {
+  const supabase = createServerSupabase();
+  let query = supabase
+    .from('captains')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (search) {
+    query = query.or(`display_name.ilike.%${search}%,whatsapp_id.ilike.%${search}%`);
+  }
+
+  const { data } = await query;
+  return data || [];
+}
+
+export async function getCaptainDetail(id: string) {
+  const supabase = createServerSupabase();
+  const { data: captain } = await supabase
+    .from('captains')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  const { data: trips } = await supabase
+    .from('trips')
+    .select('*')
+    .eq('captain_id', id)
+    .order('departure_at', { ascending: false });
+
+  const { data: payouts } = await supabase
+    .from('payouts')
+    .select('*, trips(title)')
+    .eq('captain_id', id)
+    .order('created_at', { ascending: false });
+
+  return { captain, trips: trips || [], payouts: payouts || [] };
+}
+
 export async function getAlerts(): Promise<Alerts> {
   const supabase = createServerSupabase();
 
