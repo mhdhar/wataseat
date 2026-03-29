@@ -163,6 +163,26 @@ export interface Alerts {
   }>;
 }
 
+export async function getPendingPayouts() {
+  const supabase = createServerSupabase();
+  const { data } = await supabase
+    .from('payouts')
+    .select('*, captains(display_name, iban, bank_name, whatsapp_id), trips(title, trip_type, departure_at)')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true });
+  return data || [];
+}
+
+export async function getPayoutHistory() {
+  const supabase = createServerSupabase();
+  const { data } = await supabase
+    .from('payouts')
+    .select('*, captains(display_name), trips(title)')
+    .eq('status', 'completed')
+    .order('processed_at', { ascending: false });
+  return data || [];
+}
+
 export async function getAlerts(): Promise<Alerts> {
   const supabase = createServerSupabase();
 
