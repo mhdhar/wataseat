@@ -259,6 +259,20 @@ export async function getTripDetail(id: string) {
   return { trip, bookings: bookings || [], payout };
 }
 
+export async function getBookings(filters?: { status?: string; trip_id?: string }) {
+  const supabase = createServerSupabase();
+  let query = supabase
+    .from('bookings')
+    .select('*, trips(title, trip_type)')
+    .order('created_at', { ascending: false });
+
+  if (filters?.status) query = query.eq('status', filters.status);
+  if (filters?.trip_id) query = query.eq('trip_id', filters.trip_id);
+
+  const { data } = await query;
+  return data || [];
+}
+
 export async function getAlerts(): Promise<Alerts> {
   const supabase = createServerSupabase();
 
