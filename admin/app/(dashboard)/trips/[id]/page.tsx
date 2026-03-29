@@ -74,8 +74,14 @@ export default async function TripDetailPage({
     (sum, b) => sum + Number(b.total_amount_aed ?? 0),
     0
   );
-  const commission = totalCollected * 0.1;
-  const captainPayout = totalCollected - commission;
+  const commission = activeBookings.reduce(
+    (sum, b) => sum + Number(b.platform_fee_aed ?? 0),
+    0
+  );
+  const captainPayoutTotal = activeBookings.reduce(
+    (sum, b) => sum + Number(b.captain_payout_aed ?? 0),
+    0
+  );
 
   // Fill rate
   const currentBookings = trip.current_bookings ?? 0;
@@ -223,26 +229,32 @@ export default async function TripDetailPage({
             </div>
             <div>
               <span className="text-muted-foreground">Captain Payout</span>
-              <p className="font-medium">{formatAED(captainPayout)}</p>
+              <p className="font-medium">{formatAED(captainPayoutTotal)}</p>
             </div>
-            {payout && (
-              <>
-                <Separator />
-                <div>
-                  <span className="text-muted-foreground">Payout Status</span>
-                  <p>
-                    <StatusBadge status={payout.status} />
-                  </p>
-                </div>
-                {payout.processed_at && (
-                  <div>
-                    <span className="text-muted-foreground">Processed At</span>
-                    <p className="font-medium">
-                      {formatDate(payout.processed_at)}
-                    </p>
-                  </div>
-                )}
-              </>
+            <Separator />
+            <div>
+              <span className="text-muted-foreground">Payout Status</span>
+              {payout ? (
+                <p>
+                  <StatusBadge status={payout.status} />
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">Not yet created</p>
+              )}
+            </div>
+            {payout?.processed_at && (
+              <div>
+                <span className="text-muted-foreground">Processed At</span>
+                <p className="font-medium">
+                  {formatDate(payout.processed_at)}
+                </p>
+              </div>
+            )}
+            {payout?.status === 'completed' && payout.bank_reference && (
+              <div>
+                <span className="text-muted-foreground">Bank Reference</span>
+                <p className="font-mono text-xs font-medium">{payout.bank_reference}</p>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -300,6 +312,65 @@ export default async function TripDetailPage({
           </div>
         )}
       </div>
+
+      {/* Per-Guest Financial Breakdown */}
+      {bookings.length > 0 && (
+        <>
+          <Separator />
+          <div>
+            <h2 className="text-lg font-semibold mb-4">
+              Per-Guest Financial Breakdown
+            </h2>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Guest</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Platform Fee</TableHead>
+                    <TableHead className="text-right">Captain Payout</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {bookings.map((booking) => {
+                    const bookingStatusStyles: Record<string, string> = {
+                      authorized: 'bg-blue-100 text-blue-800',
+                      confirmed: 'bg-green-100 text-green-800',
+                      cancelled: 'bg-red-100 text-red-800',
+                      refunded: 'bg-gray-100 text-gray-800',
+                    };
+                    return (
+                      <TableRow key={booking.id}>
+                        <TableCell className="font-medium">
+                          {booking.guest_name || 'Guest'}
+                        </TableCell>
+                        <TableCell>
+                          {formatAED(booking.total_amount_aed ?? 0)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="secondary"
+                            className={bookingStatusStyles[booking.status] || ''}
+                          >
+                            {booking.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatAED(booking.platform_fee_aed ?? 0)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatAED(booking.captain_payout_aed ?? 0)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
