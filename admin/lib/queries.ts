@@ -221,6 +221,44 @@ export async function getCaptainDetail(id: string) {
   return { captain, trips: trips || [], payouts: payouts || [] };
 }
 
+export async function getTrips(filters?: { status?: string; search?: string }) {
+  const supabase = createServerSupabase();
+  let query = supabase
+    .from('trips')
+    .select('*, captains(display_name)')
+    .order('departure_at', { ascending: false });
+
+  if (filters?.status) query = query.eq('status', filters.status);
+  if (filters?.search) query = query.ilike('title', `%${filters.search}%`);
+
+  const { data } = await query;
+  return data || [];
+}
+
+export async function getTripDetail(id: string) {
+  const supabase = createServerSupabase();
+
+  const { data: trip } = await supabase
+    .from('trips')
+    .select('*, captains(display_name, whatsapp_id)')
+    .eq('id', id)
+    .single();
+
+  const { data: bookings } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('trip_id', id)
+    .order('created_at', { ascending: true });
+
+  const { data: payout } = await supabase
+    .from('payouts')
+    .select('*')
+    .eq('trip_id', id)
+    .maybeSingle();
+
+  return { trip, bookings: bookings || [], payout };
+}
+
 export async function getAlerts(): Promise<Alerts> {
   const supabase = createServerSupabase();
 
