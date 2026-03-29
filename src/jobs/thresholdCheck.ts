@@ -137,7 +137,22 @@ export async function captureAllForTrip(tripId: string): Promise<void> {
   // Notify
   await notifyThresholdReached(trip, capturedBookings);
 
-  logger.info({ tripId, capturedCount: capturedBookings.length }, 'All bookings captured for trip');
+  // Create payout record for admin dashboard
+  const totalGross = capturedBookings.reduce((sum, b) => sum + Number(b.total_amount_aed), 0);
+  const commissionRate = parseFloat(process.env.PLATFORM_COMMISSION_RATE || '0.10');
+  const commission = Math.round(totalGross * commissionRate * 100) / 100;
+  const payoutAmount = Math.round((totalGross - commission) * 100) / 100;
+
+  await supabase.from('payouts').insert({
+    trip_id: tripId,
+    captain_id: trip.captain_id,
+    gross_amount: totalGross,
+    commission_amount: commission,
+    payout_amount: payoutAmount,
+    status: 'pending',
+  });
+
+  logger.info({ tripId, capturedCount: capturedBookings.length, payoutAmount }, 'All bookings captured for trip');
 }
 
 export async function cancelAllForTrip(tripId: string, reason: string): Promise<void> {
