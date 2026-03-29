@@ -273,6 +273,16 @@ export async function getBookings(filters?: { status?: string; trip_id?: string 
   return data || [];
 }
 
+export async function getAdminSettings() {
+  const supabase = createServerSupabase();
+  const { data } = await supabase.from('admin_settings').select('*');
+  const settings: Record<string, string> = {};
+  for (const row of data || []) {
+    settings[row.key] = row.value;
+  }
+  return settings;
+}
+
 export async function getAlerts(): Promise<Alerts> {
   const supabase = createServerSupabase();
 
