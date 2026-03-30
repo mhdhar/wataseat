@@ -316,7 +316,7 @@ function bookingPage(data: {
     .seat-select { padding: 12px 24px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
     .seat-select select { padding: 8px 12px; border: 2px solid #0077b6; border-radius: 8px; font-size: 15px; font-weight: 600; background: white; }
   </style>
-  <script>function updateTotal(sel){var t=document.getElementById('total');if(t)t.textContent='Total: AED '+(${data.priceAed}*sel.value).toFixed(2)}</script>
+
 </head>
 <body>
   <form action="${data.checkoutUrl}" method="POST">
@@ -334,7 +334,7 @@ function bookingPage(data: {
       <div class="price">AED ${data.priceAed} <small>/person</small></div>
       ${data.seatsLeft > 1 ? `<div class="seat-select">
         <label class="label">How many seats?</label>
-        <select name="seats" onchange="updateTotal(this)">
+        <select name="seats">
           ${Array.from({length: Math.min(data.seatsLeft, 4)}, (_, i) => `<option value="${i+1}">${i+1} seat${i > 0 ? 's' : ''}</option>`).join('')}
         </select>
         <div id="total" class="value" style="margin-top:8px;font-size:16px">Total: AED ${data.priceAed}</div>
@@ -346,6 +346,17 @@ function bookingPage(data: {
       <div class="seats">${data.seatsLeft} seat${data.seatsLeft !== 1 ? 's' : ''} remaining</div>
     </div>
   </form>
+  <script>
+    var pricePerSeat = ${data.priceAed};
+    var seatSelect = document.querySelector('select[name="seats"]');
+    var totalEl = document.getElementById('total');
+    if (seatSelect && totalEl) {
+      seatSelect.addEventListener('change', function() {
+        var seats = parseInt(this.value) || 1;
+        totalEl.textContent = 'Total: AED ' + (pricePerSeat * seats).toFixed(2);
+      });
+    }
+  </script>
 </body>
 </html>`;
 }
