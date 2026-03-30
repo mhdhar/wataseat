@@ -334,10 +334,10 @@ function bookingPage(data: {
       <div class="price">AED ${data.priceAed} <small>/person</small></div>
       ${data.seatsLeft > 1 ? `<div class="seat-select">
         <label class="label">How many seats?</label>
-        <select name="seats">
+        <select name="seats" id="seatPicker">
           ${Array.from({length: Math.min(data.seatsLeft, 4)}, (_, i) => `<option value="${i+1}">${i+1} seat${i > 0 ? 's' : ''}</option>`).join('')}
         </select>
-        <div id="total" class="value" style="margin-top:8px;font-size:16px">Total: AED ${data.priceAed}</div>
+        <span id="total" class="value" style="font-size:16px">Total: AED ${Number(data.priceAed).toFixed(2)}</span>
       </div>` : '<input type="hidden" name="seats" value="1">'}
       <div class="note">Your card is only charged if ${data.threshold}+ people book. Otherwise the hold is released automatically.</div>
       <div class="btn-wrap">
@@ -347,15 +347,17 @@ function bookingPage(data: {
     </div>
   </form>
   <script>
-    var pricePerSeat = ${data.priceAed};
-    var seatSelect = document.querySelector('select[name="seats"]');
-    var totalEl = document.getElementById('total');
-    if (seatSelect && totalEl) {
-      seatSelect.addEventListener('change', function() {
-        var seats = parseInt(this.value) || 1;
-        totalEl.textContent = 'Total: AED ' + (pricePerSeat * seats).toFixed(2);
-      });
-    }
+    document.addEventListener('DOMContentLoaded', function() {
+      var price = ${Number(data.priceAed)};
+      var picker = document.getElementById('seatPicker');
+      var total = document.getElementById('total');
+      if (picker && total) {
+        picker.onchange = function() {
+          var n = Number(this.value) || 1;
+          total.textContent = 'Total: AED ' + (price * n).toFixed(2);
+        };
+      }
+    });
   </script>
 </body>
 </html>`;
