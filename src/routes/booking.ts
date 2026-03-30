@@ -334,7 +334,7 @@ function bookingPage(data: {
       <div class="price">AED ${data.priceAed} <small>/person</small></div>
       ${data.seatsLeft > 1 ? `<div class="seat-select">
         <label class="label">How many seats?</label>
-        <select name="seats" id="seatPicker" onchange="document.getElementById('total').textContent='Total: AED '+(${Number(data.priceAed)}*Number(this.value)).toFixed(2)" oninput="document.getElementById('total').textContent='Total: AED '+(${Number(data.priceAed)}*Number(this.value)).toFixed(2)">
+        <select name="seats" id="seatPicker">
           ${Array.from({length: Math.min(data.seatsLeft, 4)}, (_, i) => `<option value="${i+1}">${i+1} seat${i > 0 ? 's' : ''}</option>`).join('')}
         </select>
         <span id="total" class="value" style="font-size:16px">Total: AED ${Number(data.priceAed).toFixed(2)}</span>
@@ -346,6 +346,9 @@ function bookingPage(data: {
       <div class="seats">${data.seatsLeft} seat${data.seatsLeft !== 1 ? 's' : ''} remaining</div>
     </div>
   </form>
+  <script>
+    (function(){var s=document.getElementById('seatPicker'),t=document.getElementById('total');if(s&&t){var p=${Number(data.priceAed)};function u(){t.textContent='Total: AED '+(p*Number(s.value)).toFixed(2)}s.addEventListener('change',u);s.addEventListener('input',u)}})();
+  </script>
 </body>
 </html>`;
 }
