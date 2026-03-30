@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import Stripe from 'stripe';
 import { logger } from '../utils/logger';
 import { supabase } from '../db/supabase';
+import { calculateCommission } from '../config';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const router = Router();
@@ -89,6 +90,13 @@ router.post('/:shortId/checkout', async (req: Request, res: Response) => {
     const numSeats = Math.min(Math.max(parseInt(req.body?.seats) || 1, 1), 4);
     const totalAmount = trip.price_per_person_aed * numSeats;
 
+    // Fetch captain's Stripe account for Connect routing
+    const { data: captain } = await supabase
+      .from('captains')
+      .select('stripe_account_id')
+      .eq('id', trip.captain_id)
+      .single();
+
     const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
     const tripTypeLabel = trip.trip_type.charAt(0).toUpperCase() + trip.trip_type.slice(1);
     const formattedDate = new Date(trip.departure_at).toLocaleDateString('en-AE', {
@@ -145,6 +153,10 @@ router.post('/:shortId/checkout', async (req: Request, res: Response) => {
           trip_id: trip.id,
           captain_id: trip.captain_id,
         },
+        ...(captain?.stripe_account_id ? {
+          application_fee_amount: calculateCommission(totalAmount).feeInFils,
+          transfer_data: { destination: captain.stripe_account_id },
+        } : {}),
       },
       custom_fields: [
         {

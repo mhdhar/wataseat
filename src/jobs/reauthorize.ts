@@ -2,6 +2,7 @@ import { supabase } from '../db/supabase';
 import { logger } from '../utils/logger';
 import { cancelPaymentIntent } from '../services/stripe';
 import { sendTextMessage } from '../services/whatsapp';
+import { calculateCommission } from '../config';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -68,6 +69,29 @@ export async function runReauthorization(): Promise<void> {
       });
       const baseUrl = process.env.APP_URL || 'http://localhost:3002';
 
+      // Fetch captain's Stripe account for Connect routing
+      const { data: captain } = await supabase
+        .from('captains')
+        .select('stripe_account_id')
+        .eq('id', booking.captain_id)
+        .single();
+
+      const piData: Record<string, any> = {
+        capture_method: 'manual',
+        metadata: {
+          booking_id: booking.id,
+          trip_id: booking.trip_id,
+          captain_id: booking.captain_id,
+          guest_wa_id: booking.guest_whatsapp_id,
+          is_reauth: 'true',
+        },
+      };
+
+      if (captain?.stripe_account_id) {
+        piData.application_fee_amount = calculateCommission(Number(booking.total_amount_aed)).feeInFils;
+        piData.transfer_data = { destination: captain.stripe_account_id };
+      }
+
       const session = await stripe.checkout.sessions.create({
         mode: 'payment',
         payment_method_types: ['card'],
@@ -82,19 +106,26 @@ export async function runReauthorization(): Promise<void> {
           },
           quantity: 1,
         }],
-        payment_intent_data: {
-          capture_method: 'manual',
-          metadata: {
-            booking_id: booking.id,
-            trip_id: booking.trip_id,
-            captain_id: booking.captain_id,
-            guest_wa_id: booking.guest_whatsapp_id,
-            is_reauth: 'true',
-          },
-        },
+        payment_intent_data: piData,
         success_url: `${baseUrl}/book/${shortId}/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${baseUrl}/book/${shortId}`,
       });
+
+      // Insert placeholder stripe_intents row so capture/cancel can find it
+      // The payment_intent_id will be updated when checkout.session.completed fires
+      const sessionPiId = session.payment_intent as string;
+      if (sessionPiId) {
+        await supabase.from('stripe_intents').insert({
+          booking_id: booking.id,
+          trip_id: booking.trip_id,
+          captain_id: booking.captain_id,
+          payment_intent_id: sessionPiId,
+          amount_aed: booking.total_amount_aed,
+          stripe_status: 'requires_payment_method',
+          is_current: true,
+          reauth_count: (currentIntent.reauth_count || 0) + 1,
+        });
+      }
 
       // Update booking with new payment link
       await supabase
@@ -102,6 +133,7 @@ export async function runReauthorization(): Promise<void> {
         .update({
           status: 'pending_payment',
           payment_link: session.url,
+          stripe_payment_intent_id: sessionPiId || null,
         })
         .eq('id', booking.id);
 
