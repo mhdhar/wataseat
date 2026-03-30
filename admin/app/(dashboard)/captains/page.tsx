@@ -4,12 +4,13 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { SortableHeader } from '@/components/sortable-header';
+import { sortData } from '@/lib/sort';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,11 +42,22 @@ function getStatusBadge(captain: {
 export default async function CaptainsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string }>;
+  searchParams: Promise<{ search?: string; sort?: string; order?: string }>;
 }) {
   const params = await searchParams;
   const search = params.search || '';
-  const captains = await getCaptains(search || undefined);
+  const sort = params.sort || null;
+  const order = params.order || null;
+  const rawCaptains = await getCaptains(search || undefined);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const captains = sortData(rawCaptains, sort, order, (item: any, key: string) => {
+    if (key === 'name') return item.display_name;
+    if (key === 'boat') return item.boat_name;
+    if (key === 'trips') return Number(item.total_trips ?? 0);
+    if (key === 'revenue') return Number(item.total_revenue_aed ?? 0);
+    return item[key];
+  });
 
   return (
     <div className="space-y-6">
@@ -75,12 +87,13 @@ export default async function CaptainsPage({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Boat</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Total Trips</TableHead>
-                <TableHead className="text-right">Revenue</TableHead>
-                <TableHead>Stripe Connect</TableHead>
+                <SortableHeader column="name" label="Name" />
+                <SortableHeader column="boat" label="Boat" />
+                <SortableHeader column="status" label="Status" />
+                <SortableHeader column="trips" label="Total Trips" className="text-right" />
+                <SortableHeader column="revenue" label="Revenue" className="text-right" />
+                <SortableHeader column="iban" label="IBAN" />
+                <SortableHeader column="bank_name" label="Bank" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -106,14 +119,9 @@ export default async function CaptainsPage({
                     {formatAED(captain.total_revenue_aed ?? 0)}
                   </TableCell>
                   <TableCell>
-                    {captain.stripe_charges_enabled ? (
-                      <Badge variant="secondary" className="bg-green-100 text-green-800">
-                        Enabled
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline">Not Connected</Badge>
-                    )}
+                    <span className="font-mono text-xs">{captain.iban || '-'}</span>
                   </TableCell>
+                  <TableCell>{captain.bank_name || '-'}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

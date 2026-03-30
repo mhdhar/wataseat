@@ -8,7 +8,7 @@ export async function getRevenueData(granularity: Granularity, from: string, to:
   const { data: bookings } = await supabase
     .from('bookings')
     .select('created_at, total_amount_aed, platform_fee_aed, captain_payout_aed, status')
-    .in('status', ['confirmed', 'authorized'])
+    .not('status', 'in', '("cancelled","refunded")')
     .gte('created_at', from)
     .lte('created_at', to)
     .order('created_at', { ascending: true });
@@ -47,7 +47,7 @@ export async function getFinancialSummary(from: string, to: string) {
   const { data: bookings } = await supabase
     .from('bookings')
     .select('total_amount_aed, platform_fee_aed, captain_payout_aed')
-    .in('status', ['confirmed', 'authorized'])
+    .not('status', 'in', '("cancelled","refunded")')
     .gte('created_at', from)
     .lte('created_at', to);
 

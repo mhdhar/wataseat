@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { getPendingPayouts, getPayoutHistory } from '@/lib/queries';
 import {
   Tabs,
@@ -15,6 +16,9 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { MarkAsPaidButton } from './mark-as-paid-button';
+import { CopyButton } from '@/components/copy-button';
+import { SortableHeader } from '@/components/sortable-header';
+import { sortData } from '@/lib/sort';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,11 +34,32 @@ function formatDate(dateStr: string): string {
   });
 }
 
-export default async function PayoutsPage() {
-  const [pending, history] = await Promise.all([
+export default async function PayoutsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sort?: string; order?: string }>;
+}) {
+  const params = await searchParams;
+  const sort = params.sort || null;
+  const order = params.order || null;
+  const [rawPending, rawHistory] = await Promise.all([
     getPendingPayouts(),
     getPayoutHistory(),
   ]);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const payoutSorter = (item: any, key: string) => {
+    if (key === 'captain') return (item.captains as { display_name: string } | null)?.display_name;
+    if (key === 'trip') return (item.trips as { title: string } | null)?.title;
+    if (key === 'date') return item.created_at;
+    if (key === 'gross') return Number(item.gross_amount);
+    if (key === 'commission') return Number(item.commission_amount);
+    if (key === 'payout') return Number(item.payout_amount);
+    return item[key];
+  };
+
+  const pending = sortData(rawPending, sort, order, payoutSorter);
+  const history = sortData(rawHistory, sort, order, payoutSorter);
 
   return (
     <div className="space-y-6">
@@ -63,12 +88,12 @@ export default async function PayoutsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Trip</TableHead>
-                    <TableHead>Captain</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Gross</TableHead>
-                    <TableHead className="text-right">Commission</TableHead>
-                    <TableHead className="text-right">Payout</TableHead>
+                    <SortableHeader column="trip" label="Trip" />
+                    <SortableHeader column="captain" label="Captain" />
+                    <SortableHeader column="date" label="Date" />
+                    <SortableHeader column="gross" label="Gross" className="text-right" />
+                    <SortableHeader column="commission" label="Commission" className="text-right" />
+                    <SortableHeader column="payout" label="Payout" className="text-right" />
                     <TableHead>IBAN</TableHead>
                     <TableHead className="text-right">Action</TableHead>
                   </TableRow>
@@ -90,14 +115,25 @@ export default async function PayoutsPage() {
                     return (
                       <TableRow key={payout.id}>
                         <TableCell className="font-medium">
-                          {trip?.title ?? 'Unknown'}
+                          <Link href={`/trips/${payout.trip_id}`} className="hover:underline">
+                            {trip?.title ?? 'Unknown'}
+                          </Link>
                           {trip?.trip_type && (
                             <Badge variant="outline" className="ml-2">
                               {trip.trip_type}
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell>{captain?.display_name ?? 'Unknown'}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Link href={`/captains/${payout.captain_id}`} className="font-medium hover:underline">
+                              {captain?.display_name || 'Unknown'}
+                            </Link>
+                            {captain?.display_name && (
+                              <CopyButton text={captain.display_name} label="" className="!p-0.5" />
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>
                           {trip?.departure_at ? formatDate(trip.departure_at) : '-'}
                         </TableCell>
@@ -112,9 +148,11 @@ export default async function PayoutsPage() {
                         </TableCell>
                         <TableCell>
                           <div className="text-xs">
-                            <span className="font-mono">{captain?.iban ?? '-'}</span>
+                            {captain?.iban ? (
+                              <CopyButton text={captain.iban} label={captain.iban} className="font-mono" />
+                            ) : '-'}
                             {captain?.bank_name && (
-                              <span className="block text-muted-foreground">
+                              <span className="block text-muted-foreground pl-1.5">
                                 {captain.bank_name}
                               </span>
                             )}
@@ -146,10 +184,10 @@ export default async function PayoutsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date Processed</TableHead>
-                    <TableHead>Captain</TableHead>
-                    <TableHead>Trip</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
+                    <SortableHeader column="processed_at" label="Date Processed" />
+                    <SortableHeader column="captain" label="Captain" />
+                    <SortableHeader column="trip" label="Trip" />
+                    <SortableHeader column="payout_amount" label="Amount" className="text-right" />
                     <TableHead>Bank Reference</TableHead>
                     <TableHead className="text-center">WhatsApp Notified</TableHead>
                   </TableRow>
@@ -168,8 +206,16 @@ export default async function PayoutsPage() {
                             ? formatDate(payout.processed_at)
                             : '-'}
                         </TableCell>
-                        <TableCell>{captain?.display_name ?? 'Unknown'}</TableCell>
-                        <TableCell>{trip?.title ?? 'Unknown'}</TableCell>
+                        <TableCell>
+                          <Link href={`/captains/${payout.captain_id}`} className="hover:underline">
+                            {captain?.display_name ?? 'Unknown'}
+                          </Link>
+                        </TableCell>
+                        <TableCell>
+                          <Link href={`/trips/${payout.trip_id}`} className="hover:underline">
+                            {trip?.title ?? 'Unknown'}
+                          </Link>
+                        </TableCell>
                         <TableCell className="text-right font-medium">
                           {formatAED(payout.payout_amount)}
                         </TableCell>

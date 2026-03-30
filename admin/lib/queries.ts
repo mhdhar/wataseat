@@ -20,7 +20,7 @@ export async function getDashboardKPIs(): Promise<DashboardKPIs> {
   const { data: currentBookings } = await supabase
     .from('bookings')
     .select('total_amount_aed, platform_fee_aed')
-    .in('status', ['confirmed', 'authorized'])
+    .not('status', 'in', '("cancelled","refunded")')
     .gte('created_at', thirtyDaysAgo.toISOString());
 
   const totalRevenue = (currentBookings ?? []).reduce(
@@ -36,7 +36,7 @@ export async function getDashboardKPIs(): Promise<DashboardKPIs> {
   const { data: prevBookings } = await supabase
     .from('bookings')
     .select('total_amount_aed')
-    .in('status', ['confirmed', 'authorized'])
+    .not('status', 'in', '("cancelled","refunded")')
     .gte('created_at', sixtyDaysAgo.toISOString())
     .lt('created_at', thirtyDaysAgo.toISOString());
 
@@ -225,14 +225,32 @@ export async function getTrips(filters?: { status?: string; search?: string }) {
   const supabase = createServerSupabase();
   let query = supabase
     .from('trips')
-    .select('*, captains(display_name)')
+    .select('*, captains(display_name), bookings(id, status)')
     .order('departure_at', { ascending: false });
 
   if (filters?.status) query = query.eq('status', filters.status);
   if (filters?.search) query = query.ilike('title', `%${filters.search}%`);
 
   const { data } = await query;
-  return data || [];
+
+  // Compute booking counts from bookings relation
+  return (data || []).map((trip) => {
+    const bookings = (trip.bookings || []) as { id: string; status: string }[];
+    // Paid bookings = authorized + confirmed (real payments)
+    const paidBookings = bookings.filter(
+      (b) => b.status === 'authorized' || b.status === 'confirmed'
+    ).length;
+    // Pending = clicked book but haven't paid yet
+    const pendingBookings = bookings.filter(
+      (b) => b.status === 'pending_payment'
+    ).length;
+    return {
+      ...trip,
+      bookings: undefined,
+      paid_bookings: paidBookings,
+      pending_bookings: pendingBookings,
+    };
+  });
 }
 
 export async function getTripDetail(id: string) {
@@ -330,4 +348,73 @@ export async function getAlerts(): Promise<Alerts> {
     stalePayouts,
     stuckCaptains: stuckCaptainsRes.data ?? [],
   };
+}
+
+export interface CalendarTripPayout {
+  id: string;
+  status: string;
+  payout_amount: number;
+  gross_amount: number;
+  commission_amount: number;
+  bank_reference: string | null;
+  processed_at: string | null;
+}
+
+export interface CalendarTrip {
+  id: string;
+  title: string;
+  trip_type: string;
+  departure_at: string;
+  duration_hours: number | null;
+  status: string;
+  current_bookings: number;
+  max_seats: number;
+  price_per_person_aed: number;
+  captain_id: string;
+  captain_name: string;
+  meeting_point: string | null;
+  payout: CalendarTripPayout | null;
+  total_revenue: number;
+  total_commission: number;
+  total_captain_payout: number;
+}
+
+export async function getTripsForCalendar(from: string, to: string): Promise<CalendarTrip[]> {
+  const supabase = createServerSupabase();
+  const { data } = await supabase
+    .from('trips')
+    .select('id, title, trip_type, departure_at, duration_hours, status, current_bookings, max_seats, price_per_person_aed, captain_id, meeting_point, captains(display_name), bookings(total_amount_aed, platform_fee_aed, captain_payout_aed, status), payouts(id, status, payout_amount, gross_amount, commission_amount, bank_reference, processed_at)')
+    .gte('departure_at', from)
+    .lte('departure_at', to)
+    .order('departure_at', { ascending: true });
+
+  return (data || []).map((t) => {
+    const bookings = (t.bookings || []) as { total_amount_aed: number; platform_fee_aed: number | null; captain_payout_aed: number | null; status: string }[];
+    const activeBookings = bookings.filter((b) => b.status !== 'cancelled' && b.status !== 'refunded');
+    const totalRevenue = activeBookings.reduce((s, b) => s + Number(b.total_amount_aed), 0);
+    const totalCommission = activeBookings.reduce((s, b) => s + Number(b.platform_fee_aed || 0), 0);
+    const totalCaptainPayout = activeBookings.reduce((s, b) => s + Number(b.captain_payout_aed || 0), 0);
+
+    const payouts = (t.payouts || []) as CalendarTripPayout[];
+    const payout = payouts.length > 0 ? payouts[0] : null;
+
+    return {
+      id: t.id,
+      title: t.title,
+      trip_type: t.trip_type,
+      departure_at: t.departure_at,
+      duration_hours: t.duration_hours ? Number(t.duration_hours) : null,
+      status: t.status,
+      current_bookings: t.current_bookings,
+      max_seats: t.max_seats,
+      price_per_person_aed: Number(t.price_per_person_aed),
+      captain_id: t.captain_id,
+      captain_name: (t.captains as unknown as { display_name: string } | null)?.display_name || 'Unknown',
+      meeting_point: t.meeting_point,
+      payout,
+      total_revenue: totalRevenue,
+      total_commission: totalCommission,
+      total_captain_payout: totalCaptainPayout,
+    };
+  });
 }

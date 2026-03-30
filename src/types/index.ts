@@ -1,7 +1,7 @@
 export type TripType = 'fishing' | 'diving' | 'cruising' | 'other';
 export type TripStatus = 'draft' | 'open' | 'confirmed' | 'cancelled' | 'completed';
 export type BookingStatus = 'pending_payment' | 'authorized' | 'confirmed' | 'cancelled' | 'refunded';
-export type OnboardingStep = 'start' | 'name' | 'boat_name' | 'license' | 'stripe' | 'complete';
+export type OnboardingStep = 'start' | 'name' | 'boat_name' | 'license' | 'iban' | 'bank_name' | 'complete';
 
 export interface Captain {
   id: string;
@@ -167,13 +167,14 @@ export class WataSeatError extends Error {
 
 // Wizard state for trip creation (stored in Redis)
 export interface TripWizardState {
-  step: 'trip_type' | 'date' | 'time' | 'duration' | 'meeting_point' | 'location_url' | 'max_seats' | 'threshold' | 'price' | 'confirm';
+  step: 'trip_type' | 'date' | 'time' | 'duration' | 'emirate' | 'meeting_point' | 'location_url' | 'max_seats' | 'threshold' | 'price' | 'confirm';
   captain_id: string;
   group_id?: string;
   trip_type?: TripType;
   departure_date?: string;
   departure_time?: string;
   duration_hours?: number;
+  emirate?: string;
   meeting_point?: string;
   location_url?: string;
   max_seats?: number;
@@ -186,6 +187,16 @@ export interface CancelConfirmState {
   trip_id: string;
   trip_title: string;
   booking_count: number;
+}
+
+// Edit wizard state (stored in Redis)
+export interface EditWizardState {
+  step: 'choose_field' | 'new_value' | 'confirm';
+  trip_id: string;
+  captain_id: string;
+  field_to_edit: string | null;
+  new_value: any;
+  original_value: any;
 }
 
 export type PayoutStatus = 'pending' | 'processing' | 'completed';

@@ -4,12 +4,15 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { DeleteTripButton } from './[id]/cancel-trip-button';
+import { BookButton } from './book-button';
+import { SortableHeader } from '@/components/sortable-header';
+import { sortData } from '@/lib/sort';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,14 +55,25 @@ const typeIcons: Record<string, string> = {
 export default async function TripsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; search?: string }>;
+  searchParams: Promise<{ status?: string; search?: string; sort?: string; order?: string }>;
 }) {
   const params = await searchParams;
   const status = params.status || '';
   const search = params.search || '';
-  const trips = await getTrips({
+  const sort = params.sort || null;
+  const order = params.order || null;
+  const rawTrips = await getTrips({
     status: status || undefined,
     search: search || undefined,
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const trips = sortData(rawTrips, sort, order, (item: any, key: string) => {
+    if (key === 'captain') return item.captains?.display_name;
+    if (key === 'price') return Number(item.price_per_person_aed);
+    if (key === 'date') return item.departure_at;
+    if (key === 'bookings') return item.paid_bookings ?? item.current_bookings ?? 0;
+    return item[key];
   });
 
   return (
@@ -128,13 +142,14 @@ export default async function TripsPage({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Trip</TableHead>
-                <TableHead>Captain</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Fill Rate</TableHead>
-                <TableHead className="text-right">Threshold</TableHead>
-                <TableHead className="text-right">Price</TableHead>
+                <SortableHeader column="title" label="Trip" />
+                <SortableHeader column="captain" label="Captain" />
+                <SortableHeader column="date" label="Date" />
+                <SortableHeader column="status" label="Status" />
+                <SortableHeader column="bookings" label="Bookings" />
+                <SortableHeader column="price" label="Price" className="text-right" />
+                <SortableHeader column="" label="Book" className="text-center" />
+                <SortableHeader column="" label="Action" className="text-right" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -155,21 +170,69 @@ export default async function TripsPage({
                         #{shortId}
                       </span>
                     </TableCell>
-                    <TableCell>{captain?.display_name || '-'}</TableCell>
+                    <TableCell>
+                      {captain?.display_name ? (
+                        <Link href={`/captains/${trip.captain_id}`} className="hover:underline">
+                          {captain.display_name}
+                        </Link>
+                      ) : '-'}
+                    </TableCell>
                     <TableCell>
                       {trip.departure_at ? formatDate(trip.departure_at) : '-'}
                     </TableCell>
                     <TableCell>
                       <TripStatusBadge status={trip.status} />
                     </TableCell>
-                    <TableCell className="text-right">
-                      {trip.current_bookings ?? 0}/{trip.max_seats ?? '-'} seats
-                    </TableCell>
-                    <TableCell className="text-right">
-                      need {trip.threshold ?? '-'} min
+                    <TableCell>
+                      {(() => {
+                        const booked = trip.paid_bookings ?? trip.current_bookings ?? 0;
+                        const pending = trip.pending_bookings ?? 0;
+                        const max = trip.max_seats ?? 0;
+                        const threshold = trip.threshold ?? 0;
+                        const thresholdPct = max > 0 ? Math.min((threshold / max) * 100, 100) : 0;
+                        const fillPct = max > 0 ? Math.min((booked / max) * 100, 100) : 0;
+                        const thresholdMet = booked >= threshold;
+                        const remaining = Math.max(threshold - booked, 0);
+                        return (
+                          <div className="min-w-[160px]">
+                            <div className="flex justify-between text-sm mb-1">
+                              <span className="font-medium">{booked}/{max} seats</span>
+                              {thresholdMet ? (
+                                <span className="text-green-600 text-xs font-medium">Threshold met</span>
+                              ) : (
+                                <span className="text-amber-600 text-xs">need {remaining} more</span>
+                              )}
+                            </div>
+                            <div className="relative h-2 rounded-full bg-gray-200 overflow-hidden">
+                              <div
+                                className={`absolute inset-y-0 left-0 rounded-full transition-all ${thresholdMet ? 'bg-green-500' : 'bg-blue-500'}`}
+                                style={{ width: `${fillPct}%` }}
+                              />
+                              <div
+                                className="absolute inset-y-0 w-0.5 bg-gray-800"
+                                style={{ left: `${thresholdPct}%` }}
+                                title={`Threshold: ${threshold}`}
+                              />
+                            </div>
+                            <div className="text-[10px] text-muted-foreground mt-0.5">
+                              min {threshold} to confirm{pending > 0 ? ` · ${pending} awaiting payment` : ''}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell className="text-right">
                       {formatAED(trip.price_per_person_aed ?? 0)}/person
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {trip.status === 'open' && (
+                        <BookButton tripId={trip.id} />
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {trip.status !== 'cancelled' && (
+                        <DeleteTripButton tripId={trip.id} />
+                      )}
                     </TableCell>
                   </TableRow>
                 );

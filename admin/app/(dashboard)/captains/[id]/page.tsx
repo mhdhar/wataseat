@@ -122,42 +122,28 @@ export default async function CaptainDetailPage({
           </CardContent>
         </Card>
 
-        {/* Stripe Connect Card */}
+        {/* Bank Details Card */}
         <Card>
           <CardHeader>
-            <CardTitle>Stripe Connect</CardTitle>
+            <CardTitle>Bank Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div>
-              <span className="text-muted-foreground">Account ID</span>
-              <p className="font-mono text-xs">
-                {captain.stripe_account_id || 'Not connected'}
+              <span className="text-muted-foreground">IBAN</span>
+              <p className="font-mono text-xs font-medium">
+                {captain.iban || 'Not provided'}
               </p>
             </div>
             <div>
-              <span className="text-muted-foreground">Charges</span>
-              <p>
-                {captain.stripe_charges_enabled ? (
-                  <Badge variant="secondary" className="bg-green-100 text-green-800">
-                    Enabled
-                  </Badge>
-                ) : (
-                  <Badge variant="outline">Disabled</Badge>
-                )}
-              </p>
+              <span className="text-muted-foreground">Bank Name</span>
+              <p className="font-medium">{captain.bank_name || 'Not provided'}</p>
             </div>
-            <div>
-              <span className="text-muted-foreground">Payouts</span>
-              <p>
-                {captain.stripe_payouts_enabled ? (
-                  <Badge variant="secondary" className="bg-green-100 text-green-800">
-                    Enabled
-                  </Badge>
-                ) : (
-                  <Badge variant="outline">Disabled</Badge>
-                )}
-              </p>
-            </div>
+            <Separator />
+            <BankDetailsForm
+              captainId={captain.id}
+              initialIban={captain.iban || ''}
+              initialBankName={captain.bank_name || ''}
+            />
           </CardContent>
         </Card>
 
@@ -222,7 +208,9 @@ export default async function CaptainDetailPage({
               <TableBody>
                 {trips.map((trip) => (
                   <TableRow key={trip.id}>
-                    <TableCell className="font-medium">{trip.title}</TableCell>
+                    <TableCell className="font-medium">
+                      <Link href={`/trips/${trip.id}`} className="hover:underline">{trip.title}</Link>
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline">{trip.trip_type}</Badge>
                     </TableCell>
@@ -277,7 +265,9 @@ export default async function CaptainDetailPage({
                   return (
                     <TableRow key={payout.id}>
                       <TableCell className="font-medium">
-                        {trip?.title ?? 'Unknown'}
+                        <Link href={`/trips/${payout.trip_id}`} className="hover:underline">
+                          {trip?.title ?? 'Unknown'}
+                        </Link>
                       </TableCell>
                       <TableCell className="text-right">
                         {formatAED(payout.payout_amount)}

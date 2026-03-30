@@ -1,7 +1,6 @@
 import { logger } from '../utils/logger';
 import { sendTextMessage } from '../services/whatsapp';
 import { supabase } from '../db/supabase';
-import { createBooking, hasGuestBooked } from '../services/bookings';
 import { getTripById } from '../services/trips';
 import { createPaymentIntent, createPaymentLink } from '../services/stripe';
 import { notifyPaymentLinkSent } from '../services/notifications';
@@ -38,19 +37,6 @@ async function handleBookingIntent(
     return;
   }
 
-  // Check seats available
-  if (trip.current_bookings >= trip.max_seats) {
-    await sendTextMessage(from, 'Sorry, this trip is fully booked!');
-    return;
-  }
-
-  // Check guest hasn't already booked
-  const alreadyBooked = await hasGuestBooked(tripId, from);
-  if (alreadyBooked) {
-    await sendTextMessage(from, "You've already booked this trip! Check your DMs for the payment link.");
-    return;
-  }
-
   // Get captain info
   const { data: captain } = await supabase
     .from('captains')
@@ -66,16 +52,48 @@ async function handleBookingIntent(
   // Get guest name from WhatsApp profile if available
   const guestName = message?.contacts?.[0]?.profile?.name || null;
 
-  // Create booking
-  const booking = await createBooking({
-    trip_id: tripId,
-    captain_id: trip.captain_id,
-    guest_whatsapp_id: from,
-    guest_name: guestName,
-    num_seats: 1,
-    price_per_seat_aed: trip.price_per_person_aed,
-    total_amount_aed: trip.price_per_person_aed,
+  // Atomic seat reservation — locks trip row, checks availability, prevents duplicates
+  const { data: bookingId, error: reserveErr } = await supabase.rpc('reserve_seat', {
+    p_trip_id: tripId,
+    p_captain_id: trip.captain_id,
+    p_guest_whatsapp_id: from,
+    p_guest_name: guestName,
+    p_num_seats: 1,
+    p_price_per_seat: trip.price_per_person_aed,
+    p_total_amount: trip.price_per_person_aed,
   });
+
+  if (reserveErr) {
+    if (reserveErr.message?.includes('NO_SEATS_AVAILABLE')) {
+      await sendTextMessage(from, 'Sorry, this trip is fully booked!');
+      return;
+    }
+    if (reserveErr.message?.includes('TRIP_NOT_AVAILABLE')) {
+      await sendTextMessage(from, 'This trip is no longer available.');
+      return;
+    }
+    // Unique constraint violation = already booked
+    if (reserveErr.message?.includes('unique') || reserveErr.message?.includes('duplicate')) {
+      await sendTextMessage(from, "You've already booked this trip! Check your DMs for the payment link.");
+      return;
+    }
+    logger.error({ err: reserveErr, tripId, from }, 'Failed to reserve seat');
+    await sendTextMessage(from, 'Something went wrong. Please try again.');
+    return;
+  }
+
+  // Fetch the full booking record
+  const { data: booking } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('id', bookingId)
+    .single();
+
+  if (!booking) {
+    logger.error({ bookingId }, 'Booking created but not found');
+    await sendTextMessage(from, 'Something went wrong. Please try again.');
+    return;
+  }
 
   // Create Stripe PaymentIntent
   const paymentIntent = await createPaymentIntent({

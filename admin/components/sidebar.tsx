@@ -9,6 +9,7 @@ import {
   BarChart3,
   Anchor,
   Ship,
+  CalendarDays,
   Ticket,
   Settings,
   type LucideIcon,
@@ -26,6 +27,7 @@ const navItems: NavItem[] = [
   { href: '/finances', label: 'Finances', icon: BarChart3 },
   { href: '/captains', label: 'Captains', icon: Anchor },
   { href: '/trips', label: 'Trips', icon: Ship },
+  { href: '/calendar', label: 'Calendar', icon: CalendarDays },
   { href: '/bookings', label: 'Bookings', icon: Ticket },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];

@@ -1,7 +1,10 @@
 import { supabase } from '../db/supabase';
 import { logger } from '../utils/logger';
-import { cancelPaymentIntent, createPaymentIntent, createPaymentLink } from '../services/stripe';
-import { notifyReauthRequired } from '../services/notifications';
+import { cancelPaymentIntent } from '../services/stripe';
+import { sendTextMessage } from '../services/whatsapp';
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function runReauthorization(): Promise<void> {
   logger.info('Running re-authorization job');
@@ -12,7 +15,7 @@ export async function runReauthorization(): Promise<void> {
   // Find authorized bookings older than reauthDays where trip is still open
   const { data: bookings, error } = await supabase
     .from('bookings')
-    .select('*, trips!inner(*), captains:captain_id(*)')
+    .select('*, trips!inner(*)')
     .eq('status', 'authorized')
     .lt('authorized_at', cutoff)
     .eq('trips.status', 'open');
@@ -29,12 +32,6 @@ export async function runReauthorization(): Promise<void> {
 
   for (const booking of bookings) {
     const trip = (booking as any).trips;
-    const captain = (booking as any).captains;
-
-    if (!captain?.stripe_account_id) {
-      logger.warn({ bookingId: booking.id }, 'Captain has no Stripe account — skipping reauth');
-      continue;
-    }
 
     try {
       // Get current stripe intent
@@ -60,46 +57,51 @@ export async function runReauthorization(): Promise<void> {
         .update({ is_current: false })
         .eq('id', currentIntent.id);
 
-      // Create new PaymentIntent
-      const newPi = await createPaymentIntent({
-        amountAed: booking.total_amount_aed,
-        captainStripeAccountId: captain.stripe_account_id,
-        bookingId: booking.id,
-        tripId: booking.trip_id,
-        captainId: captain.id,
-        guestWaId: booking.guest_whatsapp_id,
+      // Create new Checkout Session for re-authorization
+      const tripType = trip.trip_type.charAt(0).toUpperCase() + trip.trip_type.slice(1);
+      const shortId = trip.id.substring(0, 6);
+      const depDate = new Date(trip.departure_at).toLocaleDateString('en-AE', {
+        weekday: 'short', day: 'numeric', month: 'short',
+      });
+      const depTime = new Date(trip.departure_at).toLocaleTimeString('en-AE', {
+        hour: '2-digit', minute: '2-digit',
+      });
+      const baseUrl = process.env.APP_URL || 'http://localhost:3002';
+
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        payment_method_types: ['card'],
+        line_items: [{
+          price_data: {
+            currency: 'aed',
+            product_data: {
+              name: `${tripType} Trip — ${depDate} (Re-authorization)`,
+              description: `Renew your hold for booking ${booking.id.substring(0, 8)}`,
+            },
+            unit_amount: Math.round(booking.total_amount_aed * 100),
+          },
+          quantity: 1,
+        }],
+        payment_intent_data: {
+          capture_method: 'manual',
+          metadata: {
+            booking_id: booking.id,
+            trip_id: booking.trip_id,
+            captain_id: booking.captain_id,
+            guest_wa_id: booking.guest_whatsapp_id,
+            is_reauth: 'true',
+          },
+        },
+        success_url: `${baseUrl}/book/${shortId}/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${baseUrl}/book/${shortId}`,
       });
 
-      // Update reauth count on the new intent
-      await supabase
-        .from('stripe_intents')
-        .update({ reauth_count: currentIntent.reauth_count + 1 })
-        .eq('payment_intent_id', newPi.id);
-
-      // Create new payment link
-      const departureDate = new Date(trip.departure_at).toLocaleDateString('en-AE', {
-        weekday: 'short',
-        day: 'numeric',
-        month: 'short',
-      });
-
-      const newPaymentLinkUrl = await createPaymentLink({
-        amountAed: booking.total_amount_aed,
-        tripType: trip.trip_type,
-        departureDate,
-        captainName: captain.display_name,
-        numSeats: booking.num_seats,
-        captainStripeAccountId: captain.stripe_account_id,
-        bookingId: booking.id,
-      });
-
-      // Update booking to pending_payment
+      // Update booking with new payment link
       await supabase
         .from('bookings')
         .update({
           status: 'pending_payment',
-          payment_link: newPaymentLinkUrl,
-          stripe_payment_intent_id: newPi.id,
+          payment_link: session.url,
         })
         .eq('id', booking.id);
 
@@ -118,10 +120,17 @@ export async function runReauthorization(): Promise<void> {
         scheduled_for: nextReauth.toISOString(),
       });
 
-      // Notify guest
-      await notifyReauthRequired(booking, newPaymentLinkUrl);
+      // Notify guest via plain text WhatsApp
+      const guestWaId = booking.guest_whatsapp_id;
+      if (guestWaId && !guestWaId.startsWith('pending')) {
+        const guestName = booking.guest_name?.split(' ')[0] || 'there';
+        await sendTextMessage(
+          guestWaId,
+          `Hi ${guestName}, your reservation for the ${tripType} Trip on ${depDate} at ${depTime} is still active.\n\nTo keep your seat, please renew your card authorization:\n${session.url}\n\nYour card will not be charged until the trip confirms.`
+        );
+      }
 
-      logger.info({ bookingId: booking.id }, 'Booking re-authorized');
+      logger.info({ bookingId: booking.id, reauthCount: currentIntent.reauth_count + 1 }, 'Booking re-authorization sent');
     } catch (err) {
       logger.error({ err, bookingId: booking.id }, 'Failed to re-authorize booking');
     }

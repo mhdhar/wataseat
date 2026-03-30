@@ -88,8 +88,12 @@ async function processWebhook(body: any): Promise<void> {
       }
     } else if (message.type === 'interactive') {
       const buttonReply = message.interactive?.button_reply;
+      const listReply = message.interactive?.list_reply;
       if (buttonReply) {
         await handleButton(from, buttonReply.id, buttonReply.title, message);
+      } else if (listReply) {
+        // List selection — route to onboarding handler as text (for wizard steps)
+        await handleOnboarding(from, listReply.title, message);
       }
     }
   }

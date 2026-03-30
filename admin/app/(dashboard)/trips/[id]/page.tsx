@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { CancelTripButton } from './cancel-trip-button';
+import { DeleteTripButton } from './cancel-trip-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -108,7 +108,7 @@ export default async function TripDetailPage({
             </span>
           </h1>
         </div>
-        {trip.status === 'open' && <CancelTripButton tripId={trip.id} />}
+        {trip.status !== 'cancelled' && <DeleteTripButton tripId={trip.id} />}
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

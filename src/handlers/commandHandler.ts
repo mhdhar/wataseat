@@ -8,6 +8,7 @@ import { getBookingsByTrip } from '../services/bookings';
 import { cancelAllForTrip } from '../jobs/thresholdCheck';
 import { Redis } from '@upstash/redis';
 import { createOnboardingLink } from '../services/stripeConnect';
+import { startEditWizard } from './editWizardHandler';
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -33,7 +34,7 @@ export async function handleCommand(
       await handleTripCommand(from, message);
       break;
     case '/trips':
-      await handleTripsCommand(from);
+      await handleTripsCommand(from, args);
       break;
     case '/status':
       await handleStatusCommand(from, args[0]);
@@ -44,6 +45,19 @@ export async function handleCommand(
     case '/connect':
       await handleConnectCommand(from);
       break;
+    case '/repeat':
+      await handleRepeatCommand(from);
+      break;
+    case '/edit':
+      if (!args[0]) {
+        await sendTextMessage(from, 'Usage: /edit [trip ID]\nExample: /edit abc123\n\nType /trips to see your trip IDs.');
+      } else {
+        await startEditWizard(from, args[0]);
+      }
+      break;
+    case '/earnings':
+      await handleEarningsCommand(from);
+      break;
     default:
       await sendTextMessage(from, `Unknown command: ${command}\nType /help to see available commands.`);
   }
@@ -52,7 +66,7 @@ export async function handleCommand(
 async function handleHelp(from: string): Promise<void> {
   await sendTextMessage(
     from,
-    `🚢 WataSeat Commands\n\n/trip — Create a new trip\n/trips — View your upcoming trips\n/status [ID] — Check a trip's bookings\n/cancel [ID] — Cancel a trip\n/connect — Set up or update your Stripe account\n\nNeed help? Visit wataseat.com/support`
+    `🚢 WataSeat Commands\n\n/trip — Create a new trip\n/repeat — Repeat your last trip (new date/time)\n/edit [ID] — Edit a trip's details\n/trips — View your upcoming trips\n/status [ID] — Check a trip's bookings\n/cancel [ID] — Cancel a trip\n/earnings — View your earnings & payouts\n/connect — Set up or update your Stripe account\n\nNeed help? Visit wataseat.com/support`
   );
 }
 
@@ -78,15 +92,31 @@ async function handleTripCommand(from: string, message: any): Promise<void> {
     return;
   }
 
-  if (!captain.stripe_charges_enabled) {
-    await sendTextMessage(from, 'Please complete your Stripe setup before posting trips. Type /connect to get your link.');
-    return;
+  // Clear any existing wizard states
+  await redis.del(`repeat_wizard:${from}`);
+  await redis.del(`trip_wizard:${from}`);
+
+  // Check if captain has previous trips — offer repeat option
+  const { data: prevTrips } = await supabase
+    .from('trips')
+    .select('*')
+    .eq('captain_id', captain.id)
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (prevTrips && prevTrips.length > 0) {
+    const lastTrip = prevTrips[0];
+    const tripTypeLabel = lastTrip.trip_type.charAt(0).toUpperCase() + lastTrip.trip_type.slice(1);
+    await sendTextMessage(
+      from,
+      `💡 Want to repeat your last ${tripTypeLabel} Trip (${lastTrip.meeting_point || 'TBA'}, AED ${lastTrip.price_per_person_aed})?\n\nType /repeat — just pick a new date and time.\n\nOr continue below to create a brand new trip...`
+    );
   }
 
   await handleTripWizardStart(from, captain);
 }
 
-async function handleTripsCommand(from: string): Promise<void> {
+async function handleTripsCommand(from: string, args: string[] = []): Promise<void> {
   const captain = await getCaptain(from);
   if (!captain) {
     await sendTextMessage(from, "You're not registered as a captain. Send me any message to start onboarding!");
@@ -100,8 +130,13 @@ async function handleTripsCommand(from: string): Promise<void> {
     return;
   }
 
-  let response = '📅 Your upcoming trips:\n';
-  for (const trip of trips) {
+  const PAGE_SIZE = 5;
+  const page = Math.max(1, parseInt(args[0]) || 1);
+  const totalPages = Math.ceil(trips.length / PAGE_SIZE);
+  const pageTrips = trips.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  let response = `📅 Your trips (${(page - 1) * PAGE_SIZE + 1}-${Math.min(page * PAGE_SIZE, trips.length)} of ${trips.length}):\n`;
+  for (const trip of pageTrips) {
     const shortId = trip.id.substring(0, 6);
     const fillBar = buildFillBar(trip.current_bookings, trip.max_seats);
     const pct = Math.round((trip.current_bookings / trip.max_seats) * 100);
@@ -121,6 +156,9 @@ async function handleTripsCommand(from: string): Promise<void> {
     response += `\n  ${trip.current_bookings}/${trip.max_seats} seats ${fillBar} ${pct}% filled${statusIcon}\n`;
   }
 
+  if (totalPages > 1 && page < totalPages) {
+    response += `\nType /trips ${page + 1} for more.`;
+  }
   response += '\nType /status [ID] for details.';
   await sendTextMessage(from, response);
 }
@@ -248,6 +286,114 @@ async function handleConnectCommand(from: string): Promise<void> {
   }
 
   await sendTextMessage(from, 'Please complete your onboarding first. Send me any message to continue.');
+}
+
+async function handleRepeatCommand(from: string): Promise<void> {
+  // Clear any existing wizard states
+  await redis.del(`trip_wizard:${from}`);
+  await redis.del(`repeat_wizard:${from}`);
+
+  const captain = await getCaptain(from);
+  if (!captain) {
+    await sendTextMessage(from, "You're not registered yet. Send me any message to start onboarding!");
+    return;
+  }
+
+  if (captain.onboarding_step !== 'complete') {
+    await sendTextMessage(from, 'Please complete your onboarding first.');
+    return;
+  }
+
+  // Find captain's most recent trip
+  const { data: trips } = await supabase
+    .from('trips')
+    .select('*')
+    .eq('captain_id', captain.id)
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (!trips || trips.length === 0) {
+    await sendTextMessage(from, "You haven't created any trips yet. Type /trip to create your first one!");
+    return;
+  }
+
+  const lastTrip = trips[0];
+  const tripTypeLabel = lastTrip.trip_type.charAt(0).toUpperCase() + lastTrip.trip_type.slice(1);
+
+  await redis.set(`repeat_wizard:${from}`, JSON.stringify({
+    step: 'date',
+    source_trip_id: lastTrip.id,
+    captain_id: captain.id,
+    trip_type: lastTrip.trip_type,
+    meeting_point: lastTrip.meeting_point,
+    location_url: lastTrip.location_url,
+    max_seats: lastTrip.max_seats,
+    threshold: lastTrip.threshold,
+    price_per_person_aed: lastTrip.price_per_person_aed,
+    duration_hours: lastTrip.duration_hours,
+  }), { ex: 600 });
+
+  const lastDate = new Date(lastTrip.departure_at);
+  const lastTime = lastDate.toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit' });
+
+  await sendTextMessage(
+    from,
+    `🔄 Repeat your last trip:\n\n🚢 ${tripTypeLabel} Trip\n📍 ${lastTrip.meeting_point || 'TBA'}\n⏰ ${lastTime} (${lastTrip.duration_hours || '?'}h)\n💰 AED ${lastTrip.price_per_person_aed}/person\n👥 ${lastTrip.max_seats} seats (min ${lastTrip.threshold})\n\nJust need a new date and departure time.\n\nWhat date? (e.g. 28/03 or 28 March)`
+  );
+}
+
+async function handleEarningsCommand(from: string): Promise<void> {
+  const captain = await getCaptain(from);
+  if (!captain) {
+    await sendTextMessage(from, "You're not registered as a captain.");
+    return;
+  }
+
+  // Get payouts grouped by status
+  const { data: payouts } = await supabase
+    .from('payouts')
+    .select('*')
+    .eq('captain_id', captain.id)
+    .order('created_at', { ascending: false });
+
+  if (!payouts || payouts.length === 0) {
+    await sendTextMessage(from, "No earnings yet. Create a trip with /trip to get started!");
+    return;
+  }
+
+  let totalEarned = 0;
+  let completedAmount = 0;
+  let completedCount = 0;
+  let pendingAmount = 0;
+  let pendingCount = 0;
+
+  for (const p of payouts) {
+    totalEarned += Number(p.payout_amount);
+    if (p.status === 'completed') {
+      completedAmount += Number(p.payout_amount);
+      completedCount++;
+    } else {
+      pendingAmount += Number(p.payout_amount);
+      pendingCount++;
+    }
+  }
+
+  let response = `💰 Earnings Summary\n\nTotal earned: AED ${totalEarned.toFixed(2)}`;
+  response += `\n├ Completed: AED ${completedAmount.toFixed(2)} (${completedCount} trip${completedCount !== 1 ? 's' : ''})`;
+  response += `\n└ Pending: AED ${pendingAmount.toFixed(2)} (${pendingCount} trip${pendingCount !== 1 ? 's' : ''})`;
+
+  // Recent 5 payouts
+  const recent = payouts.slice(0, 5);
+  if (recent.length > 0) {
+    response += '\n\nRecent:';
+    for (const p of recent) {
+      const shortId = p.trip_id.substring(0, 6);
+      const statusIcon = p.status === 'completed' ? '✅' : '⏳';
+      response += `\n${statusIcon} [${shortId}] AED ${Number(p.payout_amount).toFixed(2)} (${p.status})`;
+    }
+  }
+
+  await sendTextMessage(from, response);
 }
 
 function buildFillBar(current: number, max: number): string {

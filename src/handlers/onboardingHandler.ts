@@ -2,10 +2,11 @@ import { logger } from '../utils/logger';
 import { sendTextMessage } from '../services/whatsapp';
 import { supabase } from '../db/supabase';
 import { Captain, OnboardingStep } from '../types';
-import { createConnectAccount, createOnboardingLink } from '../services/stripeConnect';
 import { Redis } from '@upstash/redis';
-import { CancelConfirmState, TripWizardState } from '../types';
-import { handleTripWizardStep } from './tripWizardHandler';
+import { CancelConfirmState, TripWizardState, EditWizardState } from '../types';
+import { handleTripWizardStep, parseDate, parseTime } from './tripWizardHandler';
+import { handleEditWizardStep } from './editWizardHandler';
+import { createTrip } from '../services/trips';
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -37,11 +38,27 @@ export async function handleOnboarding(
     }
   }
 
+  // Check for edit wizard state
+  const editState = await redis.get<string>(`edit_wizard:${from}`);
+  if (editState) {
+    const parsed: EditWizardState = typeof editState === 'string' ? JSON.parse(editState) : editState;
+    await handleEditWizardStep(from, text, parsed);
+    return;
+  }
+
   // Check for trip wizard state
   const wizardState = await redis.get<string>(`trip_wizard:${from}`);
   if (wizardState) {
     const parsed: TripWizardState = typeof wizardState === 'string' ? JSON.parse(wizardState) : wizardState;
     await handleTripWizardStep(from, text, parsed);
+    return;
+  }
+
+  // Check for repeat wizard state
+  const repeatState = await redis.get<string>(`repeat_wizard:${from}`);
+  if (repeatState) {
+    const parsed = typeof repeatState === 'string' ? JSON.parse(repeatState) : repeatState;
+    await handleRepeatWizardStep(from, text, parsed);
     return;
   }
 
@@ -130,58 +147,57 @@ async function processOnboardingStep(
 
       await supabase
         .from('captains')
-        .update({ license_number: license, onboarding_step: 'stripe' })
-        .eq('id', captain.id);
-
-      // Create Stripe Connect account
-      const account = await createConnectAccount(captain.whatsapp_id);
-      const onboardingLink = await createOnboardingLink(account.id);
-
-      await supabase
-        .from('captains')
-        .update({
-          stripe_account_id: account.id,
-          stripe_onboarding_url: onboardingLink,
-        })
+        .update({ license_number: license, onboarding_step: 'iban' })
         .eq('id', captain.id);
 
       await sendTextMessage(
         captain.whatsapp_id,
-        `Almost there! 💳\n\nTo receive payments from guests, you need to connect your Stripe account. This is a one-time setup where Stripe handles all payment processing.\n\nTap the link below to set up your account:\n${onboardingLink}\n\nOnce done, I'll confirm you're all set!`
+        `Almost there! 💳\n\nTo receive your payouts, I need your bank details.\n\nWhat's your IBAN number?`
       );
       break;
     }
 
-    case 'stripe': {
-      // Captain might be waiting for Stripe — check status
-      if (captain.stripe_account_id) {
-        const { getAccountStatus } = require('../services/stripeConnect');
-        const status = await getAccountStatus(captain.stripe_account_id);
-
-        if (status.charges_enabled) {
-          await supabase
-            .from('captains')
-            .update({ onboarding_step: 'complete', is_active: true, stripe_charges_enabled: true, stripe_payouts_enabled: status.payouts_enabled })
-            .eq('id', captain.id);
-
-          await sendTextMessage(
-            captain.whatsapp_id,
-            "You're all set! 🎉\n\nYour Stripe account is active. Now add me to your WhatsApp group and type /trip to create your first trip!\n\nType /help to see all available commands."
-          );
-        } else {
-          // Re-send link
-          const link = await createOnboardingLink(captain.stripe_account_id);
-          await sendTextMessage(
-            captain.whatsapp_id,
-            `Your Stripe account setup isn't complete yet. Please finish the setup here:\n${link}`
-          );
-        }
+    case 'iban': {
+      const iban = text.trim().replace(/\s/g, '').toUpperCase();
+      // UAE IBANs: AE + 2 check digits + 3 bank code + 16 account = 23 chars
+      const uaeIbanRegex = /^AE\d{21}$/;
+      if (!uaeIbanRegex.test(iban)) {
+        await sendTextMessage(captain.whatsapp_id, 'That doesn\'t look like a valid UAE IBAN.\n\nUAE IBANs start with AE and are exactly 23 characters.\nExample: AE070331234567890123456\n\nPlease try again.');
+        return;
       }
+
+      await supabase
+        .from('captains')
+        .update({ iban, onboarding_step: 'bank_name' })
+        .eq('id', captain.id);
+
+      await sendTextMessage(
+        captain.whatsapp_id,
+        `Got it! 🏦\n\nWhat's the name of your bank? (e.g. Emirates NBD, ADCB, Mashreq)`
+      );
+      break;
+    }
+
+    case 'bank_name': {
+      const bankName = text.trim();
+      if (bankName.length < 2) {
+        await sendTextMessage(captain.whatsapp_id, 'Please enter a valid bank name.');
+        return;
+      }
+
+      await supabase
+        .from('captains')
+        .update({ bank_name: bankName, onboarding_step: 'complete', is_active: true })
+        .eq('id', captain.id);
+
+      await sendTextMessage(
+        captain.whatsapp_id,
+        `You're all set, Captain! 🎉\n\nYour account is ready. Payouts will be sent to your ${bankName} account.\n\nType /trip to create your first trip — you'll get a booking link to share with your group.\n\nType /help to see all available commands.`
+      );
       break;
     }
 
     case 'complete': {
-      // Captain is fully onboarded — treat as general message
       await sendTextMessage(
         captain.whatsapp_id,
         "You're already set up! Type /help to see available commands, or /trip to create a new trip."
@@ -191,5 +207,108 @@ async function processOnboardingStep(
 
     default:
       await sendTextMessage(captain.whatsapp_id, 'Type /help to see available commands.');
+  }
+}
+
+async function handleRepeatWizardStep(from: string, text: string, state: any): Promise<void> {
+  const input = text.trim();
+
+  switch (state.step) {
+    case 'date': {
+      const parsed = parseDate(input);
+      if (!parsed) {
+        await sendTextMessage(from, "I couldn't understand that date. Please use format like: 28/03 or 28 March");
+        return;
+      }
+      if (parsed < new Date()) {
+        await sendTextMessage(from, 'That date has already passed. Enter a future date.');
+        return;
+      }
+      state.departure_date = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
+      state.step = 'time';
+      await redis.set(`repeat_wizard:${from}`, JSON.stringify(state), { ex: 600 });
+      await sendTextMessage(from, 'What time? (e.g. 6am, 06:00, 14:30)');
+      break;
+    }
+
+    case 'time': {
+      const time = parseTime(input);
+      if (!time) {
+        await sendTextMessage(from, "I couldn't understand that time. Please use format like: 6am, 06:00, or 14:30");
+        return;
+      }
+      state.departure_time = time;
+      // Skip duration — keep the original trip's duration
+      state.step = 'confirm';
+      await redis.set(`repeat_wizard:${from}`, JSON.stringify(state), { ex: 600 });
+
+      const tripTypeLabel = state.trip_type.charAt(0).toUpperCase() + state.trip_type.slice(1);
+      const departureAt = `${state.departure_date}T${state.departure_time}:00+04:00`;
+      const date = new Date(departureAt);
+      const formattedDate = date.toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' });
+      const formattedTime = date.toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit' });
+
+      await sendTextMessage(
+        from,
+        `📋 Repeat Trip Summary\n\n🚢 ${tripTypeLabel}\n📅 ${formattedDate} at ${formattedTime}\n⏱ ${state.duration_hours}h\n📍 ${state.meeting_point || 'TBA'}\n👥 ${state.max_seats} seats (min ${state.threshold})\n💰 AED ${state.price_per_person_aed}/person\n\nReply YES to confirm, NO to cancel.`
+      );
+      break;
+    }
+
+    case 'confirm': {
+      if (input.toUpperCase() === 'YES') {
+        await redis.del(`repeat_wizard:${from}`);
+
+        const tripTypeLabel = state.trip_type.charAt(0).toUpperCase() + state.trip_type.slice(1);
+        const departureAt = `${state.departure_date}T${state.departure_time}:00+04:00`;
+
+        const { data: groups } = await supabase
+          .from('whatsapp_groups')
+          .select('id')
+          .eq('captain_id', state.captain_id)
+          .eq('is_active', true)
+          .limit(1);
+
+        const groupId = groups?.[0]?.id;
+        if (!groupId) {
+          await sendTextMessage(from, 'Something went wrong. Type /trip to create a trip from scratch.');
+          return;
+        }
+
+        const trip = await createTrip({
+          captain_id: state.captain_id,
+          group_id: groupId,
+          trip_type: state.trip_type,
+          title: `${tripTypeLabel} Trip`,
+          departure_at: departureAt,
+          duration_hours: state.duration_hours,
+          meeting_point: state.meeting_point,
+          location_url: state.location_url,
+          max_seats: state.max_seats,
+          threshold: state.threshold,
+          price_per_person_aed: state.price_per_person_aed,
+        });
+
+        const shortId = trip.id.substring(0, 6);
+        const baseUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
+        const bookingUrl = `${baseUrl}/book/${shortId}`;
+        const date = new Date(departureAt);
+        const formattedDate = date.toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' });
+        const formattedTime = date.toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit' });
+
+        await sendTextMessage(from, `✅ Trip created! [${shortId}]\n\nType /status ${shortId} to track bookings.`);
+
+        const shareMsg = `🚢 ${tripTypeLabel} Trip — ${formattedDate}\n📍 ${state.meeting_point || 'TBA'}\n⏰ ${formattedTime}${state.duration_hours ? ` (${state.duration_hours}h)` : ''}\n💰 AED ${state.price_per_person_aed}/person\n👥 ${state.max_seats} seats (need ${state.threshold} min to confirm)\n\nBook & pay securely:\n${bookingUrl}\n\nYour card is only charged if the trip confirms!`;
+
+        await sendTextMessage(from, '📋 Forward the next message to your group:');
+        await sendTextMessage(from, shareMsg);
+
+        logger.info({ tripId: trip.id, captainId: state.captain_id }, 'Trip created via repeat wizard');
+      } else {
+        await redis.del(`repeat_wizard:${from}`);
+        await sendTextMessage(from, '❌ Repeat cancelled. Type /repeat to try again or /trip for a new trip.');
+      }
+      break;
+    }
   }
 }

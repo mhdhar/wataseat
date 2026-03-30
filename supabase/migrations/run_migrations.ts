@@ -288,6 +288,64 @@ const migrations: { name: string; sql: string }[] = [
       ON CONFLICT (key) DO NOTHING;
     `,
   },
+  {
+    name: '011_atomic_booking_functions',
+    sql: `
+      -- Atomically reserve a seat: locks the trip row, checks availability, inserts booking
+      CREATE OR REPLACE FUNCTION reserve_seat(
+        p_trip_id UUID,
+        p_captain_id UUID,
+        p_guest_whatsapp_id TEXT,
+        p_guest_name TEXT,
+        p_num_seats INT,
+        p_price_per_seat NUMERIC,
+        p_total_amount NUMERIC
+      ) RETURNS UUID AS $$
+      DECLARE
+        v_trip RECORD;
+        v_active_count INT;
+        v_booking_id UUID;
+      BEGIN
+        SELECT * INTO v_trip FROM trips WHERE id = p_trip_id FOR UPDATE;
+
+        IF v_trip IS NULL OR v_trip.status != 'open' THEN
+          RAISE EXCEPTION 'TRIP_NOT_AVAILABLE';
+        END IF;
+
+        SELECT COALESCE(SUM(num_seats), 0) INTO v_active_count
+        FROM bookings
+        WHERE trip_id = p_trip_id AND status != 'cancelled';
+
+        IF v_active_count + p_num_seats > v_trip.max_seats THEN
+          RAISE EXCEPTION 'NO_SEATS_AVAILABLE';
+        END IF;
+
+        INSERT INTO bookings (trip_id, captain_id, guest_whatsapp_id, guest_name, num_seats, price_per_seat_aed, total_amount_aed, status)
+        VALUES (p_trip_id, p_captain_id, p_guest_whatsapp_id, p_guest_name, p_num_seats, p_price_per_seat, p_total_amount, 'pending_payment')
+        RETURNING id INTO v_booking_id;
+
+        RETURN v_booking_id;
+      END;
+      $$ LANGUAGE plpgsql;
+
+      -- Atomically increment/decrement trip booking count
+      CREATE OR REPLACE FUNCTION atomic_increment_bookings(
+        p_trip_id UUID,
+        p_delta INT
+      ) RETURNS INT AS $$
+      DECLARE
+        v_new_count INT;
+      BEGIN
+        UPDATE trips
+        SET current_bookings = GREATEST(current_bookings + p_delta, 0)
+        WHERE id = p_trip_id
+        RETURNING current_bookings INTO v_new_count;
+
+        RETURN v_new_count;
+      END;
+      $$ LANGUAGE plpgsql;
+    `,
+  },
 ];
 
 async function run() {

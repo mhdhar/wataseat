@@ -12,19 +12,19 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { adminCancelTrip } from '../actions';
+import { adminDeleteTrip } from '../actions';
 
-interface CancelTripButtonProps {
+interface DeleteTripButtonProps {
   tripId: string;
 }
 
-export function CancelTripButton({ tripId }: CancelTripButtonProps) {
+export function DeleteTripButton({ tripId }: DeleteTripButtonProps) {
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
 
-  function handleCancel() {
+  function handleDelete() {
     startTransition(async () => {
-      await adminCancelTrip(tripId);
+      await adminDeleteTrip(tripId);
       setOpen(false);
     });
   }
@@ -32,15 +32,15 @@ export function CancelTripButton({ tripId }: CancelTripButtonProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button variant="destructive" size="sm" />}>
-        Cancel Trip
+        Delete Trip
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Cancel this trip?</DialogTitle>
+          <DialogTitle>Delete this trip?</DialogTitle>
           <DialogDescription>
-            This will cancel the trip and all associated bookings. Guests with
-            authorized payments will have their holds released. This action
-            cannot be undone.
+            This will cancel the trip and release all payment holds. Every guest
+            will be refunded and notified via WhatsApp. The captain will also be
+            notified. This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -49,10 +49,10 @@ export function CancelTripButton({ tripId }: CancelTripButtonProps) {
           </DialogClose>
           <Button
             variant="destructive"
-            onClick={handleCancel}
+            onClick={handleDelete}
             disabled={isPending}
           >
-            {isPending ? 'Cancelling...' : 'Yes, Cancel Trip'}
+            {isPending ? 'Deleting...' : 'Yes, Delete Trip'}
           </Button>
         </DialogFooter>
       </DialogContent>

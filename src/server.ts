@@ -9,6 +9,7 @@ import { Redis } from '@upstash/redis';
 import whatsappRouter from './routes/whatsapp';
 import stripeRouter from './routes/stripe';
 import adminRouter from './routes/admin';
+import bookingRouter from './routes/booking';
 import { startCronJobs } from './jobs/scheduler';
 import { sendTextMessage } from './services/whatsapp';
 
@@ -16,7 +17,14 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      'form-action': ["'self'", 'https://checkout.stripe.com'],
+    },
+  },
+}));
 app.use(cors());
 
 // Rate limiting on webhook endpoints — 100 req/min
@@ -46,6 +54,7 @@ app.use(express.json());
 app.use('/webhooks/whatsapp', whatsappRouter);
 app.use('/webhooks/stripe', stripeRouter);
 app.use('/api/admin', adminRouter);
+app.use('/book', bookingRouter);
 
 // Health check
 app.get('/health', async (_req, res) => {

@@ -4,12 +4,13 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { RefundButton } from './refund-button';
+import { SortableHeader } from '@/components/sortable-header';
+import { sortData } from '@/lib/sort';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,14 +55,25 @@ function BookingStatusBadge({ status }: { status: string }) {
 export default async function BookingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; trip_id?: string }>;
+  searchParams: Promise<{ status?: string; trip_id?: string; sort?: string; order?: string }>;
 }) {
   const params = await searchParams;
   const status = params.status || '';
   const tripId = params.trip_id || '';
-  const bookings = await getBookings({
+  const sort = params.sort || null;
+  const order = params.order || null;
+  const rawBookings = await getBookings({
     status: status || undefined,
     trip_id: tripId || undefined,
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const bookings = sortData(rawBookings, sort, order, (item: any, key: string) => {
+    if (key === 'trip') return item.trips?.title;
+    if (key === 'amount') return Number(item.total_amount_aed);
+    if (key === 'date') return item.created_at;
+    if (key === 'guest') return item.guest_name;
+    return item[key];
   });
 
   return (
@@ -119,13 +131,13 @@ export default async function BookingsPage({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Guest</TableHead>
-                <TableHead>WhatsApp ID</TableHead>
-                <TableHead>Trip</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead>Booked at</TableHead>
-                <TableHead className="text-right">Action</TableHead>
+                <SortableHeader column="guest" label="Guest" />
+                <SortableHeader column="guest_whatsapp_id" label="WhatsApp ID" />
+                <SortableHeader column="trip" label="Trip" />
+                <SortableHeader column="status" label="Status" />
+                <SortableHeader column="amount" label="Amount" className="text-right" />
+                <SortableHeader column="date" label="Booked at" />
+                <SortableHeader column="" label="Action" className="text-right" />
               </TableRow>
             </TableHeader>
             <TableBody>

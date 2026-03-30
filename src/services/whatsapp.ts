@@ -5,7 +5,19 @@ import { supabase } from '../db/supabase';
 const GRAPH_API_URL = `https://graph.facebook.com/v18.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
 const AUTH_HEADER = { Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}` };
 
+// Rate limiting: track last send time to avoid hitting Meta API limits
+let lastSendTime = 0;
+const MIN_SEND_INTERVAL_MS = 100; // 100ms between messages (~10/sec, well under Meta's 80/sec limit)
+
 async function sendMessage(payload: any): Promise<string | undefined> {
+  // Enforce minimum interval between sends
+  const now = Date.now();
+  const elapsed = now - lastSendTime;
+  if (elapsed < MIN_SEND_INTERVAL_MS) {
+    await new Promise(resolve => setTimeout(resolve, MIN_SEND_INTERVAL_MS - elapsed));
+  }
+  lastSendTime = Date.now();
+
   try {
     const response = await axios.post(GRAPH_API_URL, payload, {
       headers: { ...AUTH_HEADER, 'Content-Type': 'application/json' },
@@ -51,6 +63,46 @@ export async function sendInteractiveMessage(
         type: 'reply',
         reply: { id: btn.id, title: btn.title },
       })),
+    },
+  };
+
+  if (options.header) {
+    interactive.header = { type: 'text', text: options.header };
+  }
+  if (options.footer) {
+    interactive.footer = { text: options.footer };
+  }
+
+  const messageId = await sendMessage({
+    messaging_product: 'whatsapp',
+    to,
+    type: 'interactive',
+    interactive,
+  });
+
+  await logOutbound(to, 'interactive', messageId);
+  return messageId;
+}
+
+export async function sendListMessage(
+  to: string,
+  options: {
+    header?: string;
+    body: string;
+    footer?: string;
+    buttonText: string;
+    sections: Array<{
+      title: string;
+      rows: Array<{ id: string; title: string; description?: string }>;
+    }>;
+  }
+): Promise<string | undefined> {
+  const interactive: any = {
+    type: 'list',
+    body: { text: options.body },
+    action: {
+      button: options.buttonText,
+      sections: options.sections,
     },
   };
 
