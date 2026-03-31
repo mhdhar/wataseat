@@ -16,13 +16,13 @@ Requirements for milestone v1.0. Each maps to roadmap phases.
 
 ### Web Reservation TTL
 
-- [ ] **RSVP-01**: Web `pending_payment` reservations older than 15 minutes are excluded from seat availability calculations at the DB/query layer
-- [ ] **RSVP-02**: Stale web reservations are cleaned up proactively (more frequent than hourly, or TTL-aware query)
+- [x] **RSVP-01**: Web `pending_payment` reservations older than 15 minutes are excluded from seat availability calculations at the DB/query layer
+- [x] **RSVP-02**: Stale web reservations are cleaned up proactively (more frequent than hourly, or TTL-aware query)
 
 ### Booking Security
 
-- [ ] **SEC-01**: Anonymous web checkout holds are bound to a stable browser session token (not `pending_${Date.now()}`)
-- [ ] **SEC-02**: Per-IP/session rate limiting is applied to `POST /book/:shortId/checkout` to prevent inventory exhaustion
+- [x] **SEC-01**: Anonymous web checkout holds are bound to a stable browser session token (not `pending_${Date.now()}`)
+- [x] **SEC-02**: Per-IP/session rate limiting is applied to `POST /book/:shortId/checkout` to prevent inventory exhaustion
 
 ### Admin Refund Saga
 
@@ -85,10 +85,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SEAT-01 | Phase 1 | Complete |
 | SEAT-02 | Phase 1 | Complete |
 | SEAT-03 | Phase 5 | Pending |
-| RSVP-01 | Phase 2 | Pending |
-| RSVP-02 | Phase 2 | Pending |
-| SEC-01 | Phase 2 | Pending |
-| SEC-02 | Phase 2 | Pending |
+| RSVP-01 | Phase 2 | Complete |
+| RSVP-02 | Phase 2 | Complete |
+| SEC-01 | Phase 2 | Complete |
+| SEC-02 | Phase 2 | Complete |
 | RFND-01 | Phase 3 | Pending |
 | RFND-02 | Phase 3 | Pending |
 | RFND-03 | Phase 3 | Pending |

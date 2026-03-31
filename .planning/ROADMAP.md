@@ -13,7 +13,7 @@ This milestone establishes a trustworthy foundation for WataSeat's seat economy.
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: DB Seat Foundation** - Canonical occupancy view + correct status predicate — everything else builds on this
-- [ ] **Phase 2: Checkout Safety** - Web reservation TTL and session-bound anonymous holds with rate limiting
+- [x] **Phase 2: Checkout Safety** - Web reservation TTL and session-bound anonymous holds with rate limiting (completed 2026-03-31)
 - [ ] **Phase 3: Admin Refund Saga** - Real Stripe cancel/refund pipeline with DB sync and guest notification
 - [ ] **Phase 4: Reconciliation & Alerting** - Scheduled drift detection between DB seat counts and Stripe intent states
 - [ ] **Phase 5: Seat-Based Metrics** - Admin dashboard and captain notifications show SUM(num_seats) not row counts
@@ -44,7 +44,10 @@ Plans:
   2. Stale web reservations are cleaned up on a schedule shorter than the hourly threshold job (e.g., every 5 minutes or TTL-aware query)
   3. An anonymous checkout session receives a stable browser session token bound to its hold — not `pending_${Date.now()}`
   4. Repeated `POST /book/:shortId/checkout` calls from the same IP or session are rate-limited and blocked after a configurable threshold
-**Plans**: TBD
+**Plans:** 2/2 plans complete
+Plans:
+- [x] 02-01-PLAN.md — DB TTL enforcement (view + function rewrite) and stale hold cleanup
+- [x] 02-02-PLAN.md — Session identity cookie and checkout rate limiting
 **UI hint**: yes
 
 ### Phase 3: Admin Refund Saga
@@ -101,7 +104,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. DB Seat Foundation | 0/2 | Planning complete | - |
-| 2. Checkout Safety | 0/TBD | Not started | - |
+| 2. Checkout Safety | 2/2 | Complete   | 2026-03-31 |
 | 3. Admin Refund Saga | 0/TBD | Not started | - |
 | 4. Reconciliation & Alerting | 0/TBD | Not started | - |
 | 5. Seat-Based Metrics | 0/TBD | Not started | - |
