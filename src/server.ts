@@ -3,6 +3,8 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import cookieParser from 'cookie-parser';
+import crypto from 'crypto';
 import { logger } from './utils/logger';
 import { supabase } from './db/supabase';
 import { Redis } from '@upstash/redis';
@@ -14,6 +16,7 @@ import { startCronJobs } from './jobs/scheduler';
 import { sendTextMessage } from './services/whatsapp';
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 // Middleware
@@ -51,6 +54,27 @@ app.use('/webhooks/whatsapp', express.json({
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Session cookie support (per D-03, D-04)
+const COOKIE_SECRET = process.env.SESSION_COOKIE_SECRET || 'dev-secret-change-in-production';
+app.use(cookieParser(COOKIE_SECRET));
+
+// Session identity middleware for /book routes — sets signed httpOnly cookie
+app.use('/book', (req: Request, res: Response, next: NextFunction) => {
+  let sessionId = req.signedCookies['wata_session'];
+  if (!sessionId || sessionId === false) {
+    sessionId = `web_${crypto.randomUUID()}`;
+    res.cookie('wata_session', sessionId, {
+      httpOnly: true,
+      signed: true,
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    });
+  }
+  (req as any).wataSessionId = sessionId;
+  next();
+});
 
 // Routes
 app.use('/webhooks/whatsapp', whatsappRouter);
