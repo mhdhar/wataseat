@@ -340,9 +340,10 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
             thresholdMsg = `⏳ Your card has a hold but won't be charged yet — we need ${remaining} more booking${remaining !== 1 ? 's' : ''} to confirm the trip (${freshTrip.current_bookings}/${freshTrip.threshold} booked so far).\n\nWe'll notify you once the trip is confirmed!`;
           }
 
+          const seatsLine = booking.num_seats > 1 ? `\n🎟 ${booking.num_seats} seats` : '';
           await sendTextMessage(
             whatsappNumber,
-            `✅ Booking confirmed!\n\nBooking ID: ${bookingShortId}\n${tripType} Trip — ${depDate} at ${depTime}\n📍 ${freshTrip.meeting_point || 'TBA'}\n💰 AED ${booking.total_amount_aed}\n\n${thresholdMsg}`
+            `✅ Booking confirmed!\n\nBooking ID: ${bookingShortId}\n${tripType} Trip — ${depDate} at ${depTime}\n📍 ${freshTrip.meeting_point || 'TBA'}${seatsLine}\n💰 AED ${booking.total_amount_aed}\n\n${thresholdMsg}`
           );
 
           // Captain notification — new booking
@@ -356,9 +357,10 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
             const captainThresholdMsg = thresholdMet
               ? `\n\n✅ Threshold met! Trip is confirmed.`
               : `\n\nNeed ${freshTrip.threshold - freshTrip.current_bookings} more to confirm.`;
+            const captainSeatsLine = booking.num_seats > 1 ? ` (${booking.num_seats} seats)` : '';
             await sendTextMessage(
               captain.whatsapp_id,
-              `🎉 New booking! ${guestName || 'A guest'} booked your ${tripType} Trip [${tripShortId}].\n\n📅 ${depDate} at ${depTime}\nBooking ID: ${bookingShortId}\n${freshTrip.current_bookings}/${freshTrip.max_seats} seats filled.${captainThresholdMsg}`
+              `🎉 New booking! ${guestName || 'A guest'}${captainSeatsLine} booked your ${tripType} Trip [${tripShortId}].\n\n📅 ${depDate} at ${depTime}\nBooking ID: ${bookingShortId}\n${freshTrip.current_bookings}/${freshTrip.max_seats} seats filled.${captainThresholdMsg}`
             );
           }
         }

@@ -248,6 +248,21 @@ router.get('/:shortId/success', async (req: Request, res: Response) => {
       const calLocation = encodeURIComponent(trip.meeting_point || 'TBA');
       const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${calTitle}&dates=${calStart}/${calEnd}&location=${calLocation}`;
 
+      // Fetch booking details for seat count
+      let numSeats = 1;
+      let totalAmount: number | null = null;
+      if (bookingId) {
+        const { data: bookingData } = await supabase
+          .from('bookings')
+          .select('num_seats, total_amount_aed')
+          .eq('id', bookingId)
+          .single();
+        if (bookingData) {
+          numSeats = bookingData.num_seats || 1;
+          totalAmount = bookingData.total_amount_aed;
+        }
+      }
+
       res.send(successPageWithDetails({
         tripTypeLabel,
         formattedDate,
@@ -262,6 +277,8 @@ router.get('/:shortId/success', async (req: Request, res: Response) => {
         locationUrl: trip.location_url,
         bookingShortId: bookingId ? bookingId.substring(0, 8) : null,
         whatsappSentTo,
+        numSeats,
+        totalAmount,
       }));
       return;
     }
@@ -367,7 +384,16 @@ function successPageWithDetails(data: {
   locationUrl: string | null;
   bookingShortId: string | null;
   whatsappSentTo: string | null;
+  numSeats: number;
+  totalAmount: number | null;
 }): string {
+  const seatsLine = data.numSeats > 1
+    ? `<div class="row"><span class="label">Seats</span><span class="value">${data.numSeats}</span></div>`
+    : '';
+  const totalLine = data.totalAmount
+    ? `<div class="row"><span class="label">Total</span><span class="value">AED ${Number(data.totalAmount).toFixed(2)}</span></div>`
+    : '';
+
   const statusMsg = data.thresholdMet
     ? `<div class="status confirmed">🎉 Trip confirmed — you're ready to sail! ${data.currentBookings} people booked. Your card will be charged shortly.</div>`
     : `<div class="status pending">⏳ Waiting for ${data.threshold - data.currentBookings} more booking${data.threshold - data.currentBookings !== 1 ? 's' : ''} to confirm the trip (${data.currentBookings}/${data.threshold} so far). Your card won't be charged until then. We'll notify you once it's confirmed!</div>`;
@@ -425,6 +451,8 @@ function successPageWithDetails(data: {
       <div class="row"><span class="label">Date</span><span class="value">${data.formattedDate}</span></div>
       <div class="row"><span class="label">Time</span><span class="value">${data.formattedTime}${data.durationHours ? ` (${data.durationHours}h)` : ''}</span></div>
       <div class="row"><span class="label">Meeting Point</span><span class="value">${data.meetingPoint}</span></div>
+      ${seatsLine}
+      ${totalLine}
     </div>
     ${statusMsg}
     ${whatsappLine}
