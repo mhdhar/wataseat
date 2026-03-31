@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Phase complete — ready for verification
-stopped_at: Completed 02-checkout-safety 02-01-PLAN.md
-last_updated: "2026-03-31T10:25:37.055Z"
+status: Ready to execute
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-03-31T11:25:35.384Z"
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 6
+  completed_plans: 5
 ---
 
 # WataSeat — Project State
@@ -19,11 +19,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-31)
 
 **Core value:** Guests book and pay for boat trips entirely through WhatsApp, and captains only run when enough seats are filled — zero-risk trip economics via authorization holds.
-**Current focus:** Phase 02 — checkout-safety
+**Current focus:** Phase 03 — admin-refund-saga
 
 ## Current Position
 
-Phase: 02 (checkout-safety) — EXECUTING
+Phase: 03 (admin-refund-saga) — EXECUTING
 Plan: 2 of 2
 
 ## Performance Metrics
@@ -50,6 +50,7 @@ Plan: 2 of 2
 | Phase 01-db-seat-foundation P02 | 10 | 2 tasks | 9 files |
 | Phase 02 P02 | 2 | 2 tasks | 4 files |
 | Phase 02-checkout-safety P01 | 15 | 2 tasks | 2 files |
+| Phase 03-admin-refund-saga P01 | 5 | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -68,6 +69,8 @@ Recent decisions affecting current work:
 - [Phase 02]: Use signed httpOnly wata_session cookie for stable checkout identity, replacing forgeable pending_timestamp token
 - [Phase 02]: Rate limit POST checkout to 3 attempts/15 min per session cookie with req.ip fallback; skipSuccessfulRequests=false prevents rapid-seat-exhaustion
 - [Phase 02-checkout-safety]: 15-minute interval hardcoded in SQL (not runtime-configurable) — both view and reserve_seat() use identical predicate to prevent view/function disagreement on available seats
+- [Phase 03-admin-refund-saga]: Live stripe.paymentIntents.retrieve() for PI status before refund action — prevents stale cache issues
+- [Phase 03-admin-refund-saga]: refund_audit table records every attempt regardless of outcome (success or failure)
 
 ### Pending Todos
 
@@ -80,6 +83,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-31T10:25:37.051Z
-Stopped at: Completed 02-checkout-safety 02-01-PLAN.md
+Last session: 2026-03-31T11:25:35.381Z
+Stopped at: Completed 03-01-PLAN.md
 Resume file: None

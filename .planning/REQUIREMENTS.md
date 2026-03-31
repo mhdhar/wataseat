@@ -26,9 +26,9 @@ Requirements for milestone v1.0. Each maps to roadmap phases.
 
 ### Admin Refund Saga
 
-- [ ] **RFND-01**: Admin refund calls Stripe cancel/refund API and confirms success before updating booking status
-- [ ] **RFND-02**: Admin refund decrements `trips.current_bookings` and closes open reauth jobs for the booking
-- [ ] **RFND-03**: Admin refund records an audit trail (triggered by, timestamp, Stripe response) in the database
+- [x] **RFND-01**: Admin refund calls Stripe cancel/refund API and confirms success before updating booking status
+- [x] **RFND-02**: Admin refund decrements `trips.current_bookings` and closes open reauth jobs for the booking
+- [x] **RFND-03**: Admin refund records an audit trail (triggered by, timestamp, Stripe response) in the database
 - [ ] **RFND-04**: Guest WhatsApp refund notification is only sent after Stripe action and DB updates succeed
 
 ### Reconciliation & Alerting
@@ -89,9 +89,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RSVP-02 | Phase 2 | Complete |
 | SEC-01 | Phase 2 | Complete |
 | SEC-02 | Phase 2 | Complete |
-| RFND-01 | Phase 3 | Pending |
-| RFND-02 | Phase 3 | Pending |
-| RFND-03 | Phase 3 | Pending |
+| RFND-01 | Phase 3 | Complete |
+| RFND-02 | Phase 3 | Complete |
+| RFND-03 | Phase 3 | Complete |
 | RFND-04 | Phase 3 | Pending |
 | RECON-01 | Phase 4 | Pending |
 | RECON-02 | Phase 4 | Pending |
