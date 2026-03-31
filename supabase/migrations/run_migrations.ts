@@ -308,7 +308,7 @@ const migrations: { name: string; sql: string }[] = [
       BEGIN
         SELECT * INTO v_trip FROM trips WHERE id = p_trip_id FOR UPDATE;
 
-        IF v_trip IS NULL OR v_trip.status != 'open' THEN
+        IF v_trip IS NULL OR v_trip.status NOT IN ('open', 'confirmed') THEN
           RAISE EXCEPTION 'TRIP_NOT_AVAILABLE';
         END IF;
 
