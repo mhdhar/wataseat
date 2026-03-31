@@ -49,7 +49,6 @@ export interface Trip {
   max_seats: number;
   threshold: number;
   price_per_person_aed: number;
-  current_bookings: number;
   status: TripStatus;
   announcement_message_id: string | null;
   threshold_check_sent_at: string | null;
@@ -81,6 +80,13 @@ export interface Booking {
   confirmed_at: string | null;
   cancelled_at: string | null;
   cancellation_reason: string | null;
+}
+
+export interface TripSeatOccupancy {
+  reserved_seats: number;
+  authorized_seats: number;
+  confirmed_seats: number;
+  total_occupied_seats: number;
 }
 
 export interface StripeIntent {

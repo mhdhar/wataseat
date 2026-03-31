@@ -1,6 +1,6 @@
 import { supabase } from '../db/supabase';
 import { logger } from '../utils/logger';
-import { Booking, BookingStatus, CreateBookingInput } from '../types';
+import { Booking, BookingStatus, CreateBookingInput, TripSeatOccupancy } from '../types';
 
 export async function createBooking(data: CreateBookingInput): Promise<Booking> {
   const { data: booking, error } = await supabase
@@ -74,4 +74,22 @@ export async function getBookingById(bookingId: string): Promise<Booking | null>
 
   if (error) return null;
   return data;
+}
+
+const ZERO_OCCUPANCY: TripSeatOccupancy = {
+  reserved_seats: 0,
+  authorized_seats: 0,
+  confirmed_seats: 0,
+  total_occupied_seats: 0,
+};
+
+export async function getTripSeatOccupancy(tripId: string): Promise<TripSeatOccupancy> {
+  const { data, error } = await supabase
+    .from('trip_seat_occupancy')
+    .select('reserved_seats, authorized_seats, confirmed_seats, total_occupied_seats')
+    .eq('trip_id', tripId)
+    .maybeSingle();
+
+  if (error) throw new Error(`Seat occupancy query failed: ${error.message}`);
+  return data ?? ZERO_OCCUPANCY;
 }

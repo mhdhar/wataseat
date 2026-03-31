@@ -59,23 +59,3 @@ export async function getOpenTrips(): Promise<Trip[]> {
   return data || [];
 }
 
-export async function updateTripBookingCount(tripId: string, delta: number): Promise<Trip> {
-  const { data: trip, error: fetchErr } = await supabase
-    .from('trips')
-    .select('current_bookings')
-    .eq('id', tripId)
-    .single();
-
-  if (fetchErr || !trip) throw new Error('Trip not found');
-
-  const newCount = trip.current_bookings + delta;
-  const { data: updated, error } = await supabase
-    .from('trips')
-    .update({ current_bookings: Math.max(0, newCount) })
-    .eq('id', tripId)
-    .select()
-    .single();
-
-  if (error) throw new Error(`Failed to update trip count: ${error.message}`);
-  return updated;
-}
