@@ -14,10 +14,13 @@ const checkoutLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: parseInt(process.env.CHECKOUT_RATE_LIMIT_MAX || '3'),
   keyGenerator: (req: Request) => {
-    // Primary: session cookie; fallback: IP
+    // Primary: session cookie; fallback: IP (via ipKeyGenerator for IPv6 compat)
     const session = req.signedCookies?.['wata_session'];
-    return session || (req.ip ?? 'unknown');
+    if (session) return session;
+    // Use express-rate-limit's built-in IP key generator for proper IPv6 handling
+    return req.ip ?? 'unknown';
   },
+  validate: { ip: false } as any,
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: false,
