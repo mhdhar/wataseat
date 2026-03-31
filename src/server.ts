@@ -50,6 +50,7 @@ app.use('/webhooks/whatsapp', express.json({
 }));
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/webhooks/whatsapp', whatsappRouter);

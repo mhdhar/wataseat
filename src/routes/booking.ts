@@ -37,7 +37,17 @@ router.get('/:shortId', async (req: Request, res: Response) => {
       return;
     }
 
-    if (trip.current_bookings >= trip.max_seats) {
+    // Count actual non-cancelled bookings (includes pending_payment from reserve_seat)
+    const { count: actualBooked } = await supabase
+      .from('bookings')
+      .select('id', { count: 'exact', head: true })
+      .eq('trip_id', trip.id)
+      .not('status', 'eq', 'cancelled');
+
+    const bookedCount = actualBooked || trip.current_bookings;
+    const seatsLeft = trip.max_seats - bookedCount;
+
+    if (seatsLeft <= 0) {
       res.status(200).send(fullPage(trip));
       return;
     }
@@ -58,7 +68,7 @@ router.get('/:shortId', async (req: Request, res: Response) => {
       durationHours: trip.duration_hours,
       meetingPoint: trip.meeting_point || 'TBA',
       priceAed: trip.price_per_person_aed,
-      seatsLeft: trip.max_seats - trip.current_bookings,
+      seatsLeft,
       maxSeats: trip.max_seats,
       threshold: trip.threshold,
       captainName,
@@ -87,7 +97,15 @@ router.post('/:shortId/checkout', async (req: Request, res: Response) => {
       return;
     }
 
-    const numSeats = Math.min(Math.max(parseInt(req.body?.seats) || 1, 1), 4);
+    // Count actual seats to cap selection
+    const { count: actualBooked } = await supabase
+      .from('bookings')
+      .select('id', { count: 'exact', head: true })
+      .eq('trip_id', trip.id)
+      .not('status', 'eq', 'cancelled');
+
+    const seatsLeft = trip.max_seats - (actualBooked || 0);
+    const numSeats = Math.min(Math.max(parseInt(req.body?.seats) || 1, 1), Math.min(seatsLeft, 4));
     const totalAmount = trip.price_per_person_aed * numSeats;
 
     // Fetch captain's Stripe account for Connect routing
