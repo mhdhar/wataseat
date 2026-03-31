@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: DB Seat Foundation** - Canonical occupancy view + correct status predicate — everything else builds on this
 - [x] **Phase 2: Checkout Safety** - Web reservation TTL and session-bound anonymous holds with rate limiting (completed 2026-03-31)
-- [ ] **Phase 3: Admin Refund Saga** - Real Stripe cancel/refund pipeline with DB sync and guest notification
+- [x] **Phase 3: Admin Refund Saga** - Real Stripe cancel/refund pipeline with DB sync and guest notification (completed 2026-03-31)
 - [ ] **Phase 4: Reconciliation & Alerting** - Scheduled drift detection between DB seat counts and Stripe intent states
 - [ ] **Phase 5: Seat-Based Metrics** - Admin dashboard and captain notifications show SUM(num_seats) not row counts
 - [ ] **Phase 6: E2E Test Coverage** - Automated tests covering multi-seat checkout, abandoned holds, refunds, concurrency, and webhook reordering
@@ -60,10 +60,10 @@ Plans:
   3. An audit record (triggered_by, timestamp, Stripe response summary) is written to the database for every refund attempt (success or failure)
   4. The guest WhatsApp refund notification is dispatched only after both the Stripe action and all DB updates complete without error
   5. A failed Stripe refund call surfaces a clear error to the admin and leaves booking status unchanged
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [x] 03-01-PLAN.md — Backend saga endpoint + refund_audit migration
-- [ ] 03-02-PLAN.md — Admin frontend wiring + error state UI
+- [x] 03-02-PLAN.md — Admin frontend wiring + error state UI
 **UI hint**: yes
 
 ### Phase 4: Reconciliation & Alerting
@@ -108,7 +108,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. DB Seat Foundation | 0/2 | Planning complete | - |
 | 2. Checkout Safety | 2/2 | Complete   | 2026-03-31 |
-| 3. Admin Refund Saga | 1/2 | In Progress|  |
+| 3. Admin Refund Saga | 2/2 | Complete   | 2026-03-31 |
 | 4. Reconciliation & Alerting | 0/TBD | Not started | - |
 | 5. Seat-Based Metrics | 0/TBD | Not started | - |
 | 6. E2E Test Coverage | 0/TBD | Not started | - |
