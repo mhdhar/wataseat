@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to execute
-stopped_at: Completed 01-db-seat-foundation/01-01-PLAN.md
-last_updated: "2026-03-31T07:06:16.017Z"
+status: Phase complete — ready for verification
+stopped_at: Completed 01-db-seat-foundation/01-02-PLAN.md
+last_updated: "2026-03-31T07:17:29.070Z"
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # WataSeat — Project State
@@ -47,6 +47,7 @@ Plan: 2 of 2
 
 *Updated after each plan completion*
 | Phase 01-db-seat-foundation P01 | 15 | 2 tasks | 4 files |
+| Phase 01-db-seat-foundation P02 | 10 | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -60,6 +61,8 @@ Recent decisions affecting current work:
 - Pre-milestone: Admin refund is DB-only, never calls Stripe — Phase 3 fixes this
 - [Phase 01-db-seat-foundation]: Use trip_seat_occupancy view as canonical seat source; status IN predicate instead of status != cancelled to exclude refunded
 - [Phase 01-db-seat-foundation]: maybeSingle() with ZERO_OCCUPANCY constant for getTripSeatOccupancy — trips with zero active bookings have no view row
+- [Phase 01-db-seat-foundation]: Admin queries compute current_bookings via bookings join (not getTripSeatOccupancy) — keeps admin Next.js independent of backend service layer
+- [Phase 01-db-seat-foundation]: atomic_increment_bookings RPC removed — denormalized counter gone, view is authoritative for all seat math
 
 ### Pending Todos
 
@@ -72,6 +75,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-31T07:06:16.014Z
-Stopped at: Completed 01-db-seat-foundation/01-01-PLAN.md
+Last session: 2026-03-31T07:17:29.068Z
+Stopped at: Completed 01-db-seat-foundation/01-02-PLAN.md
 Resume file: None

@@ -33,7 +33,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans:** 2 plans
 Plans:
 - [x] 01-01-PLAN.md — Create canonical view migration, update types, add occupancy helper
-- [ ] 01-02-PLAN.md — Migrate all call sites (backend + admin) to use canonical view
+- [x] 01-02-PLAN.md — Migrate all call sites (backend + admin) to use canonical view
 
 ### Phase 2: Checkout Safety
 **Goal**: Web checkout holds are time-bounded and identity-bound, so anonymous actors cannot exhaust trip inventory
