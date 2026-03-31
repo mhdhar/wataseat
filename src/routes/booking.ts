@@ -16,7 +16,7 @@ router.get('/:shortId', async (req: Request, res: Response) => {
     const { data: trips } = await supabase
       .from('trips')
       .select('*, captains!inner(display_name, is_active)')
-      .eq('status', 'open');
+      .in('status', ['open', 'confirmed']);
 
     const trip = trips?.find((t: any) => t.id.substring(0, 6) === shortId);
 
@@ -78,7 +78,7 @@ router.post('/:shortId/checkout', async (req: Request, res: Response) => {
     const { data: trips } = await supabase
       .from('trips')
       .select('*')
-      .eq('status', 'open');
+      .in('status', ['open', 'confirmed']);
 
     const trip = trips?.find((t: any) => t.id.substring(0, 6) === shortId);
 
