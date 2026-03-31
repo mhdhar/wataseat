@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { logger } from '../utils/logger';
 import { supabase } from '../db/supabase';
 import { calculateCommission } from '../config';
+import { getTripSeatOccupancy } from '../services/bookings';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const router = Router();
@@ -37,15 +38,8 @@ router.get('/:shortId', async (req: Request, res: Response) => {
       return;
     }
 
-    // Count actual non-cancelled bookings (includes pending_payment from reserve_seat)
-    const { count: actualBooked } = await supabase
-      .from('bookings')
-      .select('id', { count: 'exact', head: true })
-      .eq('trip_id', trip.id)
-      .not('status', 'eq', 'cancelled');
-
-    const bookedCount = actualBooked || trip.current_bookings;
-    const seatsLeft = trip.max_seats - bookedCount;
+    const occupancy = await getTripSeatOccupancy(trip.id);
+    const seatsLeft = trip.max_seats - occupancy.total_occupied_seats;
 
     if (seatsLeft <= 0) {
       res.status(200).send(fullPage(trip));
@@ -97,14 +91,8 @@ router.post('/:shortId/checkout', async (req: Request, res: Response) => {
       return;
     }
 
-    // Count actual seats to cap selection
-    const { count: actualBooked } = await supabase
-      .from('bookings')
-      .select('id', { count: 'exact', head: true })
-      .eq('trip_id', trip.id)
-      .not('status', 'eq', 'cancelled');
-
-    const seatsLeft = trip.max_seats - (actualBooked || 0);
+    const occupancy = await getTripSeatOccupancy(trip.id);
+    const seatsLeft = trip.max_seats - occupancy.total_occupied_seats;
     const numSeats = Math.min(Math.max(parseInt(req.body?.seats) || 1, 1), Math.min(seatsLeft, 4));
     const totalAmount = trip.price_per_person_aed * numSeats;
 
@@ -256,7 +244,8 @@ router.get('/:shortId/success', async (req: Request, res: Response) => {
       const formattedTime = date.toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit' });
       const tripTypeLabel = trip.trip_type.charAt(0).toUpperCase() + trip.trip_type.slice(1);
       const captainName = (trip as any).captains?.display_name || 'Captain';
-      const thresholdMet = trip.current_bookings >= trip.threshold;
+      const tripOccupancy = await getTripSeatOccupancy(trip.id);
+      const thresholdMet = tripOccupancy.total_occupied_seats >= trip.threshold;
 
       // Build Google Calendar link
       const endDate = new Date(date.getTime() + (trip.duration_hours || 4) * 60 * 60 * 1000);
@@ -288,7 +277,7 @@ router.get('/:shortId/success', async (req: Request, res: Response) => {
         durationHours: trip.duration_hours,
         meetingPoint: trip.meeting_point || 'TBA',
         captainName,
-        currentBookings: trip.current_bookings,
+        currentBookings: tripOccupancy.total_occupied_seats,
         threshold: trip.threshold,
         thresholdMet,
         calendarUrl,

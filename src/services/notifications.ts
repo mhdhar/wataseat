@@ -2,6 +2,7 @@ import { sendTextMessage, sendInteractiveMessage, sendTemplateMessage } from './
 import { logger } from '../utils/logger';
 import { Booking, Trip, Captain } from '../types';
 import { supabase } from '../db/supabase';
+import { getTripSeatOccupancy } from './bookings';
 
 // Template URL bases — the dynamic parameter replaces {{1}} after these
 const STRIPE_URL_BASE = 'https://buy.stripe.com/';
@@ -118,6 +119,9 @@ export async function notifyBookingAuthorized(
   booking: Booking,
   trip: Trip
 ): Promise<void> {
+  const occupancy = await getTripSeatOccupancy(trip.id);
+  const actualFilledSeats = occupancy.total_occupied_seats;
+
   // DM to guest using template (may be outside 24h window)
   await sendTemplateMessage(booking.guest_whatsapp_id, 'booking_confirmed', [
     {
@@ -126,8 +130,8 @@ export async function notifyBookingAuthorized(
         { type: 'text', text: guestFirstName(booking) },
         { type: 'text', text: capitalize(trip.trip_type) },
         { type: 'text', text: formatDateShort(trip.departure_at) },
-        { type: 'text', text: trip.current_bookings.toString() },
-        { type: 'text', text: trip.current_bookings.toString() },
+        { type: 'text', text: actualFilledSeats.toString() },
+        { type: 'text', text: trip.max_seats.toString() },
         { type: 'text', text: trip.threshold.toString() },
       ],
     },
@@ -143,7 +147,7 @@ export async function notifyBookingAuthorized(
   if (whatsappGroup) {
     await sendTextMessage(
       whatsappGroup.group_id,
-      `📊 ${capitalize(trip.trip_type)} Trip [${shortId(trip.id)}] — ${trip.current_bookings}/${trip.max_seats} seats booked (need ${trip.threshold} min)`
+      `📊 ${capitalize(trip.trip_type)} Trip [${shortId(trip.id)}] — ${actualFilledSeats}/${trip.max_seats} seats booked (need ${trip.threshold} min)`
     );
   }
 
@@ -155,6 +159,8 @@ export async function notifyThresholdReached(
   trip: Trip,
   bookings: Booking[]
 ): Promise<void> {
+  const occupancy = await getTripSeatOccupancy(trip.id);
+
   // DM each guest using template
   for (const booking of bookings) {
     const locationUrl = trip.location_url || `https://maps.app.goo.gl/search/${encodeURIComponent(trip.meeting_point || 'UAE')}`;
@@ -189,7 +195,7 @@ export async function notifyThresholdReached(
   if (whatsappGroup) {
     await sendTextMessage(
       whatsappGroup.group_id,
-      `✅ Trip confirmed! ${trip.current_bookings}/${trip.max_seats} seats filled for ${capitalize(trip.trip_type)} on ${formatDate(trip.departure_at)}. See you there!`
+      `✅ Trip confirmed! ${occupancy.total_occupied_seats}/${trip.max_seats} seats filled for ${capitalize(trip.trip_type)} on ${formatDate(trip.departure_at)}. See you there!`
     );
   }
 
@@ -274,8 +280,9 @@ export async function notifyCaptainSummary(
 
   let tripList = '';
   for (const trip of upcomingTrips) {
-    const status = trip.current_bookings < trip.threshold ? 'Need more' : 'Confirmed';
-    tripList += `${capitalize(trip.trip_type)} - ${formatDateShort(trip.departure_at)} - ${trip.current_bookings}/${trip.max_seats} seats (${status})\n`;
+    const occupancy = await getTripSeatOccupancy(trip.id);
+    const status = occupancy.total_occupied_seats < trip.threshold ? 'Need more' : 'Confirmed';
+    tripList += `${capitalize(trip.trip_type)} - ${formatDateShort(trip.departure_at)} - ${occupancy.total_occupied_seats}/${trip.max_seats} seats (${status})\n`;
   }
 
   await sendTemplateMessage(captain.whatsapp_id, 'captain_daily_summary', [

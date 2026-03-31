@@ -4,7 +4,7 @@ import { supabase } from '../db/supabase';
 import { handleTripWizardStart } from './tripWizardHandler';
 import { Captain } from '../types';
 import { getTripsByCaptain, getTripByShortId } from '../services/trips';
-import { getBookingsByTrip } from '../services/bookings';
+import { getBookingsByTrip, getTripSeatOccupancy } from '../services/bookings';
 import { cancelAllForTrip } from '../jobs/thresholdCheck';
 import { Redis } from '@upstash/redis';
 import { createOnboardingLink } from '../services/stripeConnect';
@@ -138,8 +138,10 @@ async function handleTripsCommand(from: string, args: string[] = []): Promise<vo
   let response = `📅 Your trips (${(page - 1) * PAGE_SIZE + 1}-${Math.min(page * PAGE_SIZE, trips.length)} of ${trips.length}):\n`;
   for (const trip of pageTrips) {
     const shortId = trip.id.substring(0, 6);
-    const fillBar = buildFillBar(trip.current_bookings, trip.max_seats);
-    const pct = Math.round((trip.current_bookings / trip.max_seats) * 100);
+    const occupancy = await getTripSeatOccupancy(trip.id);
+    const filledSeats = occupancy.total_occupied_seats;
+    const fillBar = buildFillBar(filledSeats, trip.max_seats);
+    const pct = Math.round((filledSeats / trip.max_seats) * 100);
     const statusIcon = trip.status === 'confirmed' ? ' ✅ CONFIRMED' : ` (need ${trip.threshold} min)`;
 
     const date = new Date(trip.departure_at).toLocaleDateString('en-AE', {
@@ -153,7 +155,7 @@ async function handleTripsCommand(from: string, args: string[] = []): Promise<vo
     });
 
     response += `\n[${shortId}] ${trip.trip_type.charAt(0).toUpperCase() + trip.trip_type.slice(1)} — ${date} ${time}`;
-    response += `\n  ${trip.current_bookings}/${trip.max_seats} seats ${fillBar} ${pct}% filled${statusIcon}\n`;
+    response += `\n  ${filledSeats}/${trip.max_seats} seats ${fillBar} ${pct}% filled${statusIcon}\n`;
   }
 
   if (totalPages > 1 && page < totalPages) {
@@ -182,8 +184,10 @@ async function handleStatusCommand(from: string, shortIdArg?: string): Promise<v
   }
 
   const bookings = await getBookingsByTrip(trip.id);
-  const fillBar = buildFillBar(trip.current_bookings, trip.max_seats);
-  const remaining = trip.threshold - trip.current_bookings;
+  const statusOccupancy = await getTripSeatOccupancy(trip.id);
+  const statusFilledSeats = statusOccupancy.total_occupied_seats;
+  const fillBar = buildFillBar(statusFilledSeats, trip.max_seats);
+  const remaining = trip.threshold - statusFilledSeats;
 
   const date = new Date(trip.departure_at);
   const formattedDate = date.toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -206,7 +210,7 @@ async function handleStatusCommand(from: string, shortIdArg?: string): Promise<v
     statusText = `OPEN — ${remaining} more needed`;
   }
 
-  let response = `🚢 ${trip.trip_type.charAt(0).toUpperCase() + trip.trip_type.slice(1)} Trip — ${formattedDate}\nID: ${trip.id.substring(0, 6)}\n\n📍 ${trip.meeting_point || 'TBA'}\n⏰ ${formattedTime}${trip.duration_hours ? ` (${trip.duration_hours}h)` : ''}\n💰 AED ${trip.price_per_person_aed}/person\n\nSeats: ${trip.current_bookings}/${trip.max_seats} ${fillBar}\nThreshold: ${trip.threshold} minimum\nStatus: ${statusText}`;
+  let response = `🚢 ${trip.trip_type.charAt(0).toUpperCase() + trip.trip_type.slice(1)} Trip — ${formattedDate}\nID: ${trip.id.substring(0, 6)}\n\n📍 ${trip.meeting_point || 'TBA'}\n⏰ ${formattedTime}${trip.duration_hours ? ` (${trip.duration_hours}h)` : ''}\n💰 AED ${trip.price_per_person_aed}/person\n\nSeats: ${statusFilledSeats}/${trip.max_seats} ${fillBar}\nThreshold: ${trip.threshold} minimum\nStatus: ${statusText}`;
 
   if (bookings.length > 0) {
     response += '\n\nGuests booked:';
@@ -247,16 +251,19 @@ async function handleCancelCommand(from: string, shortIdArg?: string): Promise<v
     return;
   }
 
+  const cancelOccupancy = await getTripSeatOccupancy(trip.id);
+  const cancelFilledSeats = cancelOccupancy.total_occupied_seats;
+
   // Store cancel confirmation state in Redis
   await redis.set(`cancel_confirm:${from}`, JSON.stringify({
     trip_id: trip.id,
     trip_title: `${trip.trip_type} Trip on ${new Date(trip.departure_at).toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })}`,
-    booking_count: trip.current_bookings,
+    booking_count: cancelFilledSeats,
   }), { ex: 300 }); // Expires in 5 minutes
 
   await sendTextMessage(
     from,
-    `⚠️ Are you sure you want to cancel the ${trip.trip_type} Trip on ${new Date(trip.departure_at).toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })}?\n\n• ${trip.current_bookings} guest${trip.current_bookings !== 1 ? 's' : ''} will be notified\n• All card holds will be released\n• No one will be charged\n\nReply YES to confirm, or NO to keep the trip.`
+    `⚠️ Are you sure you want to cancel the ${trip.trip_type} Trip on ${new Date(trip.departure_at).toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })}?\n\n• ${cancelFilledSeats} guest${cancelFilledSeats !== 1 ? 's' : ''} will be notified\n• All card holds will be released\n• No one will be charged\n\nReply YES to confirm, or NO to keep the trip.`
   );
 }
 

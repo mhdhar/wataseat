@@ -22,7 +22,7 @@ export async function getBookingsByTrip(tripId: string): Promise<Booking[]> {
     .from('bookings')
     .select('*')
     .eq('trip_id', tripId)
-    .not('status', 'eq', 'cancelled');
+    .in('status', ['pending_payment', 'authorized', 'confirmed']);
 
   if (error) throw new Error(`Failed to get bookings: ${error.message}`);
   return data || [];
@@ -58,7 +58,7 @@ export async function hasGuestBooked(tripId: string, guestWaId: string): Promise
     .select('id')
     .eq('trip_id', tripId)
     .eq('guest_whatsapp_id', guestWaId)
-    .not('status', 'eq', 'cancelled')
+    .in('status', ['pending_payment', 'authorized', 'confirmed'])
     .limit(1);
 
   if (error) return false;

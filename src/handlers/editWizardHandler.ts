@@ -5,6 +5,7 @@ import { Redis } from '@upstash/redis';
 import { EditWizardState, Trip } from '../types';
 import { parseDate, parseTime } from './tripWizardHandler';
 import { captureAllForTrip } from '../jobs/thresholdCheck';
+import { getTripSeatOccupancy } from '../services/bookings';
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -73,9 +74,10 @@ export async function startEditWizard(from: string, shortId: string): Promise<vo
     hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Dubai',
   });
 
+  const editMenuOccupancy = await getTripSeatOccupancy(trip.id);
   await sendTextMessage(
     from,
-    `✏️ Edit ${tripType} Trip [${shortId}]\n\n📅 ${depDate} at ${depTime}\n📍 ${trip.meeting_point || 'TBA'}\n💰 AED ${trip.price_per_person_aed}/person\n👥 ${trip.current_bookings}/${trip.max_seats} seats (min ${trip.threshold})\n\nWhat would you like to change?\n\n1. Date\n2. Time\n3. Duration\n4. Meeting Point\n5. Location URL\n6. Price\n7. Max Seats\n8. Threshold\n\nReply with the number, or type *cancel* to exit.`
+    `✏️ Edit ${tripType} Trip [${shortId}]\n\n📅 ${depDate} at ${depTime}\n📍 ${trip.meeting_point || 'TBA'}\n💰 AED ${trip.price_per_person_aed}/person\n👥 ${editMenuOccupancy.total_occupied_seats}/${trip.max_seats} seats (min ${trip.threshold})\n\nWhat would you like to change?\n\n1. Date\n2. Time\n3. Duration\n4. Meeting Point\n5. Location URL\n6. Price\n7. Max Seats\n8. Threshold\n\nReply with the number, or type *cancel* to exit.`
   );
 }
 
@@ -121,12 +123,15 @@ async function handleFieldSelection(from: string, text: string, state: EditWizar
   }
 
   // Business rule: price can't be changed if bookings exist
-  if (choice === '6' && trip.current_bookings > 0) {
-    await sendTextMessage(
-      from,
-      `Can't change the price — ${trip.current_bookings} guest(s) already booked at AED ${trip.price_per_person_aed}. You'd need to cancel the trip and create a new one.\n\nPick another field (1-8) or type *cancel*.`
-    );
-    return;
+  if (choice === '6') {
+    const priceCheckOccupancy = await getTripSeatOccupancy(trip.id);
+    if (priceCheckOccupancy.total_occupied_seats > 0) {
+      await sendTextMessage(
+        from,
+        `Can't change the price — ${priceCheckOccupancy.total_occupied_seats} guest(s) already booked at AED ${trip.price_per_person_aed}. You'd need to cancel the trip and create a new one.\n\nPick another field (1-8) or type *cancel*.`
+      );
+      return;
+    }
   }
 
   state.step = 'new_value';
@@ -168,16 +173,20 @@ async function handleFieldSelection(from: string, text: string, state: EditWizar
       await redis.set(`edit_wizard:${from}`, JSON.stringify(state), { ex: EDIT_WIZARD_TTL });
       await sendTextMessage(from, `Current price: AED ${trip.price_per_person_aed}\n\nEnter the new price per person (e.g. 250):`);
       break;
-    case '7': // Max Seats
+    case '7': { // Max Seats
+      const maxSeatsOccupancy = await getTripSeatOccupancy(trip.id);
       state.original_value = trip.max_seats;
       await redis.set(`edit_wizard:${from}`, JSON.stringify(state), { ex: EDIT_WIZARD_TTL });
-      await sendTextMessage(from, `Current max seats: ${trip.max_seats} (${trip.current_bookings} booked)\n\nEnter the new maximum (must be >= ${trip.current_bookings}):`);
+      await sendTextMessage(from, `Current max seats: ${trip.max_seats} (${maxSeatsOccupancy.total_occupied_seats} booked)\n\nEnter the new maximum (must be >= ${maxSeatsOccupancy.total_occupied_seats}):`);
       break;
-    case '8': // Threshold
+    }
+    case '8': { // Threshold
+      const thresholdOccupancy = await getTripSeatOccupancy(trip.id);
       state.original_value = trip.threshold;
       await redis.set(`edit_wizard:${from}`, JSON.stringify(state), { ex: EDIT_WIZARD_TTL });
-      await sendTextMessage(from, `Current threshold: ${trip.threshold} (${trip.current_bookings} booked)\n\nEnter the new minimum passengers:`);
+      await sendTextMessage(from, `Current threshold: ${trip.threshold} (${thresholdOccupancy.total_occupied_seats} booked)\n\nEnter the new minimum passengers:`);
       break;
+    }
   }
 }
 
@@ -261,8 +270,9 @@ async function handleNewValue(from: string, text: string, state: EditWizardState
         await sendTextMessage(from, 'Enter a valid number of seats.');
         return;
       }
-      if (maxSeats < trip.current_bookings) {
-        await sendTextMessage(from, `Can't set max seats below ${trip.current_bookings} — that's how many are already booked.`);
+      const maxSeatsValidOccupancy = await getTripSeatOccupancy(trip.id);
+      if (maxSeats < maxSeatsValidOccupancy.total_occupied_seats) {
+        await sendTextMessage(from, `Can't set max seats below ${maxSeatsValidOccupancy.total_occupied_seats} — that's how many are already booked.`);
         return;
       }
       state.new_value = maxSeats;
@@ -365,10 +375,13 @@ async function handleConfirmation(from: string, text: string, state: EditWizardS
   // If threshold was lowered and now met, trigger capture
   if (fieldChoice === '8') {
     const freshTrip = await supabase.from('trips').select('*').eq('id', state.trip_id).single();
-    if (freshTrip.data && freshTrip.data.current_bookings >= freshTrip.data.threshold && freshTrip.data.status === 'open') {
-      logger.info({ tripId: state.trip_id }, 'Threshold now met after edit — capturing');
-      await captureAllForTrip(state.trip_id);
-      await sendTextMessage(from, `🎉 The new threshold is already met! All bookings are being captured.`);
+    if (freshTrip.data && freshTrip.data.status === 'open') {
+      const freshOccupancy = await getTripSeatOccupancy(state.trip_id);
+      if (freshOccupancy.total_occupied_seats >= freshTrip.data.threshold) {
+        logger.info({ tripId: state.trip_id }, 'Threshold now met after edit — capturing');
+        await captureAllForTrip(state.trip_id);
+        await sendTextMessage(from, `🎉 The new threshold is already met! All bookings are being captured.`);
+      }
     }
   }
 }
@@ -378,7 +391,7 @@ async function notifyGuestsOfChange(tripId: string, fieldChanged: string): Promi
     .from('bookings')
     .select('guest_whatsapp_id, guest_name')
     .eq('trip_id', tripId)
-    .not('status', 'eq', 'cancelled');
+    .in('status', ['pending_payment', 'authorized', 'confirmed']);
 
   if (!bookings || bookings.length === 0) return;
 

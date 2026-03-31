@@ -4,6 +4,7 @@ import { capturePaymentIntent, cancelPaymentIntent, refundPaymentIntent } from '
 import { sendTextMessage } from '../services/whatsapp';
 import { Booking, Trip } from '../types';
 import { PLATFORM_COMMISSION_RATE, calculateCommission, SUPPORT_CONTACT } from '../config';
+import { getTripSeatOccupancy } from '../services/bookings';
 
 export async function runThresholdCheck(): Promise<void> {
   logger.info('Running threshold check job');
@@ -12,7 +13,7 @@ export async function runThresholdCheck(): Promise<void> {
   const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
   const { data: staleBookings } = await supabase
     .from('bookings')
-    .select('*, trips!inner(id, trip_type, departure_at, status, max_seats, current_bookings)')
+    .select('*, trips!inner(id, trip_type, departure_at, status, max_seats)')
     .eq('status', 'pending_payment')
     .lt('created_at', fourHoursAgo);
 
@@ -22,7 +23,8 @@ export async function runThresholdCheck(): Promise<void> {
       if (booking.guest_whatsapp_id && !booking.guest_whatsapp_id.startsWith('pending')) {
         const trip = (booking as any).trips;
         const tripType = trip?.trip_type ? trip.trip_type.charAt(0).toUpperCase() + trip.trip_type.slice(1) : 'Your';
-        const tripOpen = trip?.status === 'open' && trip.current_bookings < trip.max_seats;
+        const tripOccupancy = trip?.id ? await getTripSeatOccupancy(trip.id) : null;
+        const tripOpen = trip?.status === 'open' && tripOccupancy !== null && tripOccupancy.total_occupied_seats < trip.max_seats;
         const shortId = trip?.id?.substring(0, 6);
         const rebookMsg = tripOpen && shortId
           ? `\n\nIf you'd still like to join, you can book again at ${process.env.APP_URL || 'https://wataseat.com'}/book/${shortId}`
@@ -64,7 +66,8 @@ export async function runThresholdCheck(): Promise<void> {
   }
 
   for (const trip of trips) {
-    if (trip.current_bookings >= trip.threshold) {
+    const occupancy = await getTripSeatOccupancy(trip.id);
+    if (occupancy.total_occupied_seats >= trip.threshold) {
       // Threshold met — capture all
       logger.info({ tripId: trip.id }, 'Threshold met at check time — capturing');
       await captureAllForTrip(trip.id);
@@ -89,12 +92,12 @@ export async function runThresholdCheck(): Promise<void> {
       if (captain) {
         await sendTextMessage(
           captain.whatsapp_id,
-          `⚠️ Your ${tripType} Trip [${shortId}] on ${depDate} has ${trip.current_bookings}/${trip.threshold} bookings — threshold not met.\n\nThe trip will be auto-cancelled in ~1 hour if the threshold isn't reached. All card holds will be released.\n\nType /cancel ${shortId} to cancel now, or wait.`
+          `⚠️ Your ${tripType} Trip [${shortId}] on ${depDate} has ${occupancy.total_occupied_seats}/${trip.threshold} bookings — threshold not met.\n\nThe trip will be auto-cancelled in ~1 hour if the threshold isn't reached. All card holds will be released.\n\nType /cancel ${shortId} to cancel now, or wait.`
         );
       }
 
       // Notify booked guests about potential cancellation
-      const remaining = trip.threshold - trip.current_bookings;
+      const remaining = trip.threshold - occupancy.total_occupied_seats;
       const { data: guestBookings } = await supabase
         .from('bookings')
         .select('guest_whatsapp_id, guest_name')
@@ -106,7 +109,7 @@ export async function runThresholdCheck(): Promise<void> {
           const name = booking.guest_name?.split(' ')[0] || 'there';
           await sendTextMessage(
             booking.guest_whatsapp_id,
-            `Hi ${name}, the ${tripType} Trip on ${depDate} needs ${remaining} more booking${remaining !== 1 ? 's' : ''} to confirm (${trip.current_bookings}/${trip.threshold} so far).\n\nIf the minimum isn't reached in ~1 hour, the trip will be cancelled and your card hold of AED will be released automatically.\n\nQuestions? Visit ${SUPPORT_CONTACT}`
+            `Hi ${name}, the ${tripType} Trip on ${depDate} needs ${remaining} more booking${remaining !== 1 ? 's' : ''} to confirm (${occupancy.total_occupied_seats}/${trip.threshold} so far).\n\nIf the minimum isn't reached in ~1 hour, the trip will be cancelled and your card hold of AED will be released automatically.\n\nQuestions? Visit ${SUPPORT_CONTACT}`
           );
         }
       }
@@ -117,7 +120,7 @@ export async function runThresholdCheck(): Promise<void> {
         .update({ threshold_check_sent_at: new Date().toISOString() })
         .eq('id', trip.id);
 
-      logger.info({ tripId: trip.id, current: trip.current_bookings, threshold: trip.threshold }, 'Threshold warning sent to captain and guests');
+      logger.info({ tripId: trip.id, current: occupancy.total_occupied_seats, threshold: trip.threshold }, 'Threshold warning sent to captain and guests');
     }
   }
 
@@ -130,8 +133,9 @@ export async function runThresholdCheck(): Promise<void> {
     .lte('departure_at', checkTime.toISOString());
 
   for (const trip of (warnedTrips || [])) {
+    const warnedOccupancy = await getTripSeatOccupancy(trip.id);
     // Skip if threshold was met since the warning
-    if (trip.current_bookings >= trip.threshold) {
+    if (warnedOccupancy.total_occupied_seats >= trip.threshold) {
       logger.info({ tripId: trip.id }, 'Threshold met after warning — capturing');
       await captureAllForTrip(trip.id);
       continue;
@@ -142,7 +146,7 @@ export async function runThresholdCheck(): Promise<void> {
     const hoursSinceWarning = (Date.now() - warnedAt) / (1000 * 60 * 60);
     if (hoursSinceWarning < 0.9) continue; // Wait at least ~1 hour
 
-    logger.info({ tripId: trip.id, current: trip.current_bookings, threshold: trip.threshold }, 'Auto-cancelling after warning');
+    logger.info({ tripId: trip.id, current: warnedOccupancy.total_occupied_seats, threshold: trip.threshold }, 'Auto-cancelling after warning');
     await cancelAllForTrip(trip.id, 'threshold_not_met');
   }
 
@@ -498,9 +502,10 @@ export async function cancelAllForTrip(tripId: string, reason: string): Promise<
       .single();
 
     if (captain) {
+      const cancelSummaryOccupancy = await getTripSeatOccupancy(tripId);
       await sendTextMessage(
         captain.whatsapp_id,
-        `❌ Your ${tripType} Trip [${trip.id.substring(0, 6)}] has been cancelled — ${reason === 'threshold_not_met' ? `threshold not met (${trip.current_bookings}/${trip.threshold} booked)` : reason}.\n\nAll card holds released. No charges made.`
+        `❌ Your ${tripType} Trip [${trip.id.substring(0, 6)}] has been cancelled — ${reason === 'threshold_not_met' ? `threshold not met (${cancelSummaryOccupancy.total_occupied_seats}/${trip.threshold} booked)` : reason}.\n\nAll card holds released. No charges made.`
       );
     }
   }

@@ -6,6 +6,7 @@ import { supabase } from '../db/supabase';
 import { captureAllForTrip } from '../jobs/thresholdCheck';
 import { sendTextMessage } from '../services/whatsapp';
 import { notifyBookingAuthorized, notifyThresholdReached, notifyTripCancelled } from '../services/notifications';
+import { getTripSeatOccupancy } from '../services/bookings';
 import { SUPPORT_CONTACT } from '../config';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -134,19 +135,6 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
         });
       }
 
-      // Atomically increment trip booking count
-      const { data: booking } = await supabase
-        .from('bookings')
-        .select('num_seats')
-        .eq('id', bookingId)
-        .single();
-
-      const seats = booking?.num_seats || 1;
-      const { data: newCount } = await supabase.rpc('atomic_increment_bookings', {
-        p_trip_id: tripId,
-        p_delta: seats,
-      });
-
       const { data: trip } = await supabase
         .from('trips')
         .select('*')
@@ -165,10 +153,10 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
           scheduled_for: reauthDate.toISOString(),
         });
 
-        // Check if threshold is met — capture immediately
-        const currentCount = newCount ?? trip.current_bookings;
-        if (currentCount >= trip.threshold && trip.status === 'open') {
-          logger.info({ tripId, currentCount, threshold: trip.threshold }, 'Threshold reached — capturing all');
+        // Check if threshold is met — capture immediately (use view for accurate count)
+        const occupancy = await getTripSeatOccupancy(tripId);
+        if (occupancy.total_occupied_seats >= trip.threshold && trip.status === 'open') {
+          logger.info({ tripId, currentCount: occupancy.total_occupied_seats, threshold: trip.threshold }, 'Threshold reached — capturing all');
           await captureAllForTrip(tripId);
         }
       }
@@ -244,11 +232,7 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
             );
           }
 
-          // Decrement trip booking count
-          await supabase.rpc('atomic_increment_bookings', {
-            p_trip_id: cancelBooking.trip_id,
-            p_delta: -(cancelBooking.num_seats || 1),
-          });
+          // Seat count is now computed from the view — no counter update needed
         }
       }
       break;
@@ -315,6 +299,9 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
 
           if (!freshTrip) break;
 
+          const freshOccupancy = await getTripSeatOccupancy(freshTrip.id);
+          const filledSeats = freshOccupancy.total_occupied_seats;
+
           const tripType = freshTrip.trip_type.charAt(0).toUpperCase() + freshTrip.trip_type.slice(1);
           const tripShortId = freshTrip.id.substring(0, 6);
           const bookingShortId = booking.id.substring(0, 8);
@@ -327,7 +314,7 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
           const locationLine = freshTrip.location_url ? `\n📍 Location: ${freshTrip.location_url}` : '';
 
           const isConfirmed = freshTrip.status === 'confirmed' || booking.status === 'confirmed';
-          const thresholdMet = freshTrip.current_bookings >= freshTrip.threshold;
+          const thresholdMet = filledSeats >= freshTrip.threshold;
 
           // Guest confirmation
           let thresholdMsg: string;
@@ -336,8 +323,8 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
           } else if (thresholdMet) {
             thresholdMsg = `🎉 Trip confirmed — you're ready to sail! Your card will be charged shortly.${locationLine}`;
           } else {
-            const remaining = freshTrip.threshold - freshTrip.current_bookings;
-            thresholdMsg = `⏳ Your card has a hold but won't be charged yet — we need ${remaining} more booking${remaining !== 1 ? 's' : ''} to confirm the trip (${freshTrip.current_bookings}/${freshTrip.threshold} booked so far).\n\nWe'll notify you once the trip is confirmed!`;
+            const remaining = freshTrip.threshold - filledSeats;
+            thresholdMsg = `⏳ Your card has a hold but won't be charged yet — we need ${remaining} more booking${remaining !== 1 ? 's' : ''} to confirm the trip (${filledSeats}/${freshTrip.threshold} booked so far).\n\nWe'll notify you once the trip is confirmed!`;
           }
 
           const seatsLine = booking.num_seats > 1 ? `\n🎟 ${booking.num_seats} seats` : '';
@@ -356,11 +343,11 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
           if (captain) {
             const captainThresholdMsg = thresholdMet
               ? `\n\n✅ Threshold met! Trip is confirmed.`
-              : `\n\nNeed ${freshTrip.threshold - freshTrip.current_bookings} more to confirm.`;
+              : `\n\nNeed ${freshTrip.threshold - filledSeats} more to confirm.`;
             const captainSeatsLine = booking.num_seats > 1 ? ` (${booking.num_seats} seats)` : '';
             await sendTextMessage(
               captain.whatsapp_id,
-              `🎉 New booking! ${guestName || 'A guest'}${captainSeatsLine} booked your ${tripType} Trip [${tripShortId}].\n\n📅 ${depDate} at ${depTime}\nBooking ID: ${bookingShortId}\n${freshTrip.current_bookings}/${freshTrip.max_seats} seats filled.${captainThresholdMsg}`
+              `🎉 New booking! ${guestName || 'A guest'}${captainSeatsLine} booked your ${tripType} Trip [${tripShortId}].\n\n📅 ${depDate} at ${depTime}\nBooking ID: ${bookingShortId}\n${filledSeats}/${freshTrip.max_seats} seats filled.${captainThresholdMsg}`
             );
           }
         }
