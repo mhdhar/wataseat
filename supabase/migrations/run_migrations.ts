@@ -474,6 +474,24 @@ const migrations: { name: string; sql: string }[] = [
       $$ LANGUAGE plpgsql;
     `,
   },
+  {
+    name: '014_refund_audit',
+    sql: `
+      CREATE TABLE IF NOT EXISTS refund_audit (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        booking_id UUID NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+        triggered_by TEXT NOT NULL,
+        action TEXT NOT NULL CHECK (action IN ('cancel', 'refund', 'error')),
+        stripe_response JSONB,
+        success BOOLEAN NOT NULL,
+        error_message TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_refund_audit_booking ON refund_audit(booking_id);
+      CREATE INDEX IF NOT EXISTS idx_refund_audit_created ON refund_audit(created_at DESC);
+    `,
+  },
 ];
 
 async function run() {

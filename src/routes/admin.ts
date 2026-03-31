@@ -1,9 +1,12 @@
 import { Router, Request, Response } from 'express';
+import Stripe from 'stripe';
 import { logger } from '../utils/logger';
 import { sendTemplateMessage, sendTextMessage } from '../services/whatsapp';
 import { cancelAllForTrip } from '../jobs/thresholdCheck';
 import { supabase } from '../db/supabase';
-import { createPaymentLink } from '../services/stripe';
+import { createPaymentLink, cancelPaymentIntent, refundPaymentIntent } from '../services/stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 const router = Router();
 
@@ -163,6 +166,126 @@ router.post('/create-booking', async (req: Request, res: Response) => {
     logger.error({ err: err.message, tripId }, 'Admin create booking failed');
     res.status(500).json({ error: 'Failed to create booking' });
   }
+});
+
+// Refund a booking — full saga: Stripe action → DB updates → guest notification
+router.post('/refund-booking', async (req: Request, res: Response) => {
+  const { bookingId } = req.body;
+
+  if (!bookingId) {
+    res.status(400).json({ error: 'Missing bookingId' });
+    return;
+  }
+
+  // Step 0: Load booking with trip join + current stripe intent
+  const { data: booking } = await supabase
+    .from('bookings')
+    .select('*, trips(title)')
+    .eq('id', bookingId)
+    .single();
+
+  if (!booking) {
+    res.status(404).json({ error: 'Booking not found' });
+    return;
+  }
+
+  const { data: intentRow } = await supabase
+    .from('stripe_intents')
+    .select('payment_intent_id')
+    .eq('booking_id', bookingId)
+    .eq('is_current', true)
+    .maybeSingle();
+
+  // Pitfall 5: fall back to bookings.stripe_payment_intent_id if no stripe_intents row
+  const piId = intentRow?.payment_intent_id ?? booking.stripe_payment_intent_id;
+  if (!piId) {
+    res.status(422).json({ error: 'No Stripe PaymentIntent found for this booking' });
+    return;
+  }
+
+  let action: 'cancel' | 'refund' | 'error' = 'error';
+  let stripeResponse: object = {};
+  let success = false;
+  let errorMessage: string | undefined;
+
+  try {
+    // Step 1: Live-retrieve PI status (D-01 — do NOT trust cached stripe_intents status)
+    const pi = await stripe.paymentIntents.retrieve(piId);
+
+    if (pi.status === 'requires_capture') {
+      const result = await cancelPaymentIntent(pi.id);
+      action = 'cancel';
+      stripeResponse = { id: result.id, status: result.status };
+    } else if (pi.status === 'succeeded') {
+      const result = await refundPaymentIntent(pi.id);
+      action = 'refund';
+      stripeResponse = { id: result.id, status: result.status };
+    } else {
+      throw new Error(`PaymentIntent ${pi.id} is in state '${pi.status}' — cannot refund`);
+    }
+
+    // Step 2: DB updates — only after Stripe success (D-02)
+    await supabase
+      .from('bookings')
+      .update({
+        status: 'refunded',
+        cancelled_at: new Date().toISOString(),
+        cancellation_reason: 'Refunded by admin',
+      })
+      .eq('id', bookingId);
+
+    // Close open reauth jobs — mark complete, do NOT delete (D-06)
+    await supabase
+      .from('reauth_jobs')
+      .update({ is_complete: true, executed_at: new Date().toISOString() })
+      .eq('booking_id', bookingId)
+      .eq('is_complete', false);
+
+    // Note: trips.current_bookings was removed in Phase 1 migration 012 (D-07)
+    // The trip_seat_occupancy view excludes 'refunded' status automatically
+
+    success = true;
+    logger.info({ bookingId, action }, 'Admin refund saga succeeded');
+  } catch (err: any) {
+    errorMessage = err.message;
+    logger.error({ err: err.message, bookingId }, 'Admin refund saga failed');
+  }
+
+  // Step 3: Audit record — always written regardless of success or failure (D-03)
+  await supabase.from('refund_audit').insert({
+    booking_id: bookingId,
+    triggered_by: 'admin',
+    action,
+    stripe_response: stripeResponse,
+    success,
+    error_message: errorMessage ?? null,
+  });
+
+  if (!success) {
+    res.status(500).json({ error: errorMessage ?? 'Refund failed' });
+    return;
+  }
+
+  // Step 4: Guest WhatsApp notification — only after Stripe + DB success (D-05, RFND-04)
+  // Failure is logged but does NOT fail the response — refund is already complete
+  if (booking.guest_whatsapp_id) {
+    const trip = booking.trips as { title: string } | null;
+    try {
+      await sendTemplateMessage(booking.guest_whatsapp_id, 'booking_refunded', [
+        {
+          type: 'body',
+          parameters: [
+            { type: 'text', text: booking.guest_name || 'there' },
+            { type: 'text', text: trip?.title ?? 'Trip' },
+          ],
+        },
+      ]);
+    } catch (notifyErr: any) {
+      logger.error({ err: notifyErr.message, bookingId }, 'Guest refund notification failed — refund already complete');
+    }
+  }
+
+  res.json({ success: true, action });
 });
 
 export default router;
