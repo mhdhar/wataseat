@@ -1,11 +1,27 @@
 import { Router, Request, Response } from 'express';
 import Stripe from 'stripe';
+import rateLimit from 'express-rate-limit';
 import { logger } from '../utils/logger';
 import { supabase } from '../db/supabase';
 import { calculateCommission } from '../config';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const router = Router();
+
+// Per-session + per-IP rate limiting on checkout (per D-05, D-06)
+const checkoutLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: parseInt(process.env.CHECKOUT_RATE_LIMIT_MAX || '3'),
+  keyGenerator: (req: Request) => {
+    // Primary: session cookie; fallback: IP
+    const session = req.signedCookies?.['wata_session'];
+    return session || (req.ip ?? 'unknown');
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: false,
+  message: { error: 'Too many booking attempts. Please try again in 15 minutes.' },
+});
 
 // GET /book/:shortId — Show trip details and redirect to Stripe Checkout
 router.get('/:shortId', async (req: Request, res: Response) => {
@@ -81,7 +97,7 @@ router.get('/:shortId', async (req: Request, res: Response) => {
 });
 
 // POST /book/:shortId/checkout — Create Stripe Checkout Session
-router.post('/:shortId/checkout', async (req: Request, res: Response) => {
+router.post('/:shortId/checkout', checkoutLimiter, async (req: Request, res: Response) => {
   const { shortId } = req.params;
 
   try {
@@ -125,7 +141,7 @@ router.post('/:shortId/checkout', async (req: Request, res: Response) => {
     const { data: bookingId, error: reserveErr } = await supabase.rpc('reserve_seat', {
       p_trip_id: trip.id,
       p_captain_id: trip.captain_id,
-      p_guest_whatsapp_id: `pending_${Date.now()}`,
+      p_guest_whatsapp_id: (req as any).wataSessionId ?? `web_${Date.now()}`,
       p_guest_name: null,
       p_num_seats: numSeats,
       p_price_per_seat: trip.price_per_person_aed,
