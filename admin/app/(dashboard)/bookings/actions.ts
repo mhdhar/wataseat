@@ -1,48 +1,33 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { createServerSupabase } from '@/lib/supabase';
-import { sendWhatsAppTemplate } from '@/lib/whatsapp';
 
-export async function refundBooking(bookingId: string) {
-  const supabase = createServerSupabase();
+export async function refundBooking(
+  bookingId: string
+): Promise<{ success: true; action: string } | { error: string }> {
+  try {
+    const res = await fetch(
+      `${process.env.EXPRESS_BOT_URL}/api/admin/refund-booking`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Secret': process.env.ADMIN_API_SECRET!,
+        },
+        body: JSON.stringify({ bookingId }),
+      }
+    );
 
-  const { data: booking, error: fetchError } = await supabase
-    .from('bookings')
-    .select('*, trips(title)')
-    .eq('id', bookingId)
-    .single();
+    const data = await res.json();
 
-  if (fetchError || !booking) {
-    return { error: 'Booking not found' };
-  }
-
-  const { error: updateError } = await supabase
-    .from('bookings')
-    .update({
-      status: 'refunded',
-      cancelled_at: new Date().toISOString(),
-      cancellation_reason: 'Refunded by admin',
-    })
-    .eq('id', bookingId);
-
-  if (updateError) {
-    return { error: 'Failed to update booking' };
-  }
-
-  // Notify guest via WhatsApp
-  if (booking.guest_whatsapp_id) {
-    const trip = booking.trips as { title: string } | null;
-    try {
-      await sendWhatsAppTemplate(booking.guest_whatsapp_id, 'booking_refunded', [
-        booking.guest_name || 'there',
-        trip?.title ?? 'Trip',
-      ]);
-    } catch {
-      // WhatsApp notification failure should not fail the refund action
+    if (!res.ok) {
+      return { error: data.error ?? 'Refund failed' };
     }
-  }
 
-  revalidatePath('/bookings');
-  return { success: true };
+    revalidatePath('/bookings');
+    return { success: true, action: data.action };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Network error — could not reach backend';
+    return { error: message };
+  }
 }

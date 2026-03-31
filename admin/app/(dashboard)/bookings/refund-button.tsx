@@ -21,18 +21,23 @@ interface RefundButtonProps {
 export function RefundButton({ bookingId, guestName, amount }: RefundButtonProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   function handleConfirm() {
+    setErrorMessage(null);
     startTransition(async () => {
       const result = await refundBooking(bookingId);
-      if (result.success) {
+      if ('success' in result) {
         setOpen(false);
+      } else {
+        setErrorMessage(result.error);
+        // Do NOT close dialog — keep button enabled for retry (D-04)
       }
     });
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) setErrorMessage(null); }}>
       <DialogTrigger render={<Button size="sm" variant="outline" />}>
         Refund
       </DialogTrigger>
@@ -66,6 +71,9 @@ export function RefundButton({ bookingId, guestName, amount }: RefundButtonProps
             {isPending ? 'Processing...' : 'Confirm Refund'}
           </Button>
         </DialogFooter>
+        {errorMessage && (
+          <p className="mt-2 text-sm text-red-600">{errorMessage}</p>
+        )}
       </DialogContent>
     </Dialog>
   );
