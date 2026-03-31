@@ -148,7 +148,7 @@ export interface Alerts {
     id: string;
     title: string;
     departure_at: string;
-    current_bookings: number;
+    current_bookings: number; // computed from active bookings (pending_payment | authorized | confirmed)
     threshold: number;
   }>;
   stalePayouts: Array<{
@@ -206,11 +206,20 @@ export async function getCaptainDetail(id: string) {
     .eq('id', id)
     .single();
 
-  const { data: trips } = await supabase
+  const { data: rawTrips } = await supabase
     .from('trips')
-    .select('*')
+    .select('*, bookings(status, num_seats)')
     .eq('captain_id', id)
     .order('departure_at', { ascending: false });
+
+  // Compute current_bookings from active bookings relation
+  const trips = (rawTrips || []).map((trip) => {
+    const bookings = (trip.bookings || []) as { status: string; num_seats: number | null }[];
+    const current_bookings = bookings
+      .filter((b) => ['pending_payment', 'authorized', 'confirmed'].includes(b.status))
+      .reduce((sum, b) => sum + (b.num_seats || 1), 0);
+    return { ...trip, bookings: undefined, current_bookings };
+  });
 
   const { data: payouts } = await supabase
     .from('payouts')
@@ -218,7 +227,7 @@ export async function getCaptainDetail(id: string) {
     .eq('captain_id', id)
     .order('created_at', { ascending: false });
 
-  return { captain, trips: trips || [], payouts: payouts || [] };
+  return { captain, trips, payouts: payouts || [] };
 }
 
 export async function getTrips(filters?: { status?: string; search?: string }) {
@@ -311,10 +320,10 @@ export async function getAlerts(): Promise<Alerts> {
   );
 
   const [atRiskRes, stalePayoutsRes, stuckCaptainsRes] = await Promise.all([
-    // At-risk trips: open, departing within 24h
+    // At-risk trips: open, departing within 24h — join bookings to compute occupancy
     supabase
       .from('trips')
-      .select('id, title, departure_at, current_bookings, threshold')
+      .select('id, title, departure_at, threshold, bookings(status, num_seats)')
       .eq('status', 'open')
       .lte('departure_at', in24h.toISOString())
       .gte('departure_at', now.toISOString()),
@@ -333,10 +342,16 @@ export async function getAlerts(): Promise<Alerts> {
       .neq('onboarding_step', 'complete'),
   ]);
 
-  // Filter at-risk trips where current_bookings < threshold
-  const atRiskTrips = (atRiskRes.data ?? []).filter(
-    (t) => t.current_bookings < t.threshold
-  );
+  // Compute occupied seats from active bookings, filter at-risk where below threshold
+  const atRiskTrips = (atRiskRes.data ?? [])
+    .map((t) => {
+      const bookings = (t.bookings || []) as { status: string; num_seats: number | null }[];
+      const current_bookings = bookings
+        .filter((b) => ['pending_payment', 'authorized', 'confirmed'].includes(b.status))
+        .reduce((sum, b) => sum + (b.num_seats || 1), 0);
+      return { id: t.id, title: t.title, departure_at: t.departure_at, threshold: t.threshold, current_bookings };
+    })
+    .filter((t) => t.current_bookings < t.threshold);
 
   const stalePayouts = (stalePayoutsRes.data ?? []).map((p) => ({
     ...p,
@@ -383,17 +398,22 @@ export async function getTripsForCalendar(from: string, to: string): Promise<Cal
   const supabase = createServerSupabase();
   const { data } = await supabase
     .from('trips')
-    .select('id, title, trip_type, departure_at, duration_hours, status, current_bookings, max_seats, price_per_person_aed, captain_id, meeting_point, captains(display_name), bookings(total_amount_aed, platform_fee_aed, captain_payout_aed, status), payouts(id, status, payout_amount, gross_amount, commission_amount, bank_reference, processed_at)')
+    .select('id, title, trip_type, departure_at, duration_hours, status, max_seats, price_per_person_aed, captain_id, meeting_point, captains(display_name), bookings(total_amount_aed, platform_fee_aed, captain_payout_aed, status, num_seats), payouts(id, status, payout_amount, gross_amount, commission_amount, bank_reference, processed_at)')
     .gte('departure_at', from)
     .lte('departure_at', to)
     .order('departure_at', { ascending: true });
 
   return (data || []).map((t) => {
-    const bookings = (t.bookings || []) as { total_amount_aed: number; platform_fee_aed: number | null; captain_payout_aed: number | null; status: string }[];
+    const bookings = (t.bookings || []) as { total_amount_aed: number; platform_fee_aed: number | null; captain_payout_aed: number | null; status: string; num_seats: number | null }[];
     const activeBookings = bookings.filter((b) => b.status !== 'cancelled' && b.status !== 'refunded');
     const totalRevenue = activeBookings.reduce((s, b) => s + Number(b.total_amount_aed), 0);
     const totalCommission = activeBookings.reduce((s, b) => s + Number(b.platform_fee_aed || 0), 0);
     const totalCaptainPayout = activeBookings.reduce((s, b) => s + Number(b.captain_payout_aed || 0), 0);
+
+    // Compute current_bookings from active status bookings (canonical predicate)
+    const current_bookings = bookings
+      .filter((b) => ['pending_payment', 'authorized', 'confirmed'].includes(b.status))
+      .reduce((sum, b) => sum + (b.num_seats || 1), 0);
 
     const payouts = (t.payouts || []) as CalendarTripPayout[];
     const payout = payouts.length > 0 ? payouts[0] : null;
@@ -405,7 +425,7 @@ export async function getTripsForCalendar(from: string, to: string): Promise<Cal
       departure_at: t.departure_at,
       duration_hours: t.duration_hours ? Number(t.duration_hours) : null,
       status: t.status,
-      current_bookings: t.current_bookings,
+      current_bookings,
       max_seats: t.max_seats,
       price_per_person_aed: Number(t.price_per_person_aed),
       captain_id: t.captain_id,

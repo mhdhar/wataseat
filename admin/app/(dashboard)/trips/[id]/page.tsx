@@ -83,8 +83,10 @@ export default async function TripDetailPage({
     0
   );
 
-  // Fill rate
-  const currentBookings = trip.current_bookings ?? 0;
+  // Fill rate — compute from active bookings (canonical: pending_payment | authorized | confirmed)
+  const currentBookings = bookings
+    .filter((b) => ['pending_payment', 'authorized', 'confirmed'].includes(b.status))
+    .reduce((sum, b) => sum + (b.num_seats || 1), 0);
   const maxSeats = trip.max_seats ?? 0;
   const threshold = trip.threshold ?? 0;
   const fillPercent = maxSeats > 0 ? Math.round((currentBookings / maxSeats) * 100) : 0;

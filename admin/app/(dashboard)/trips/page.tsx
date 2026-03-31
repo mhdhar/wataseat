@@ -72,7 +72,7 @@ export default async function TripsPage({
     if (key === 'captain') return item.captains?.display_name;
     if (key === 'price') return Number(item.price_per_person_aed);
     if (key === 'date') return item.departure_at;
-    if (key === 'bookings') return item.paid_bookings ?? item.current_bookings ?? 0;
+    if (key === 'bookings') return item.paid_bookings ?? 0;
     return item[key];
   });
 
@@ -185,7 +185,7 @@ export default async function TripsPage({
                     </TableCell>
                     <TableCell>
                       {(() => {
-                        const booked = trip.paid_bookings ?? trip.current_bookings ?? 0;
+                        const booked = trip.paid_bookings ?? 0;
                         const pending = trip.pending_bookings ?? 0;
                         const max = trip.max_seats ?? 0;
                         const threshold = trip.threshold ?? 0;
