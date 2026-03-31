@@ -405,6 +405,75 @@ const migrations: { name: string; sql: string }[] = [
       $$ LANGUAGE plpgsql;
     `,
   },
+  {
+    name: '013_pending_payment_ttl_view',
+    sql: `
+      -- Statement 1: Rewrite view to exclude pending_payment rows older than 15 minutes
+      CREATE OR REPLACE VIEW trip_seat_occupancy AS
+      SELECT
+        trip_id,
+        COALESCE(SUM(num_seats) FILTER (
+          WHERE status = 'pending_payment'
+          AND created_at > NOW() - INTERVAL '15 minutes'
+        ), 0) AS reserved_seats,
+        COALESCE(SUM(num_seats) FILTER (WHERE status = 'authorized'),   0) AS authorized_seats,
+        COALESCE(SUM(num_seats) FILTER (WHERE status = 'confirmed'),    0) AS confirmed_seats,
+        COALESCE(SUM(num_seats) FILTER (
+          WHERE (status = 'pending_payment' AND created_at > NOW() - INTERVAL '15 minutes')
+             OR status IN ('authorized', 'confirmed')
+        ), 0) AS total_occupied_seats
+      FROM bookings
+      GROUP BY trip_id;
+
+      -- Statement 2: Rewrite reserve_seat() to apply identical 15-minute filter
+      -- Both the view and the function must agree on which pending rows count (Pitfall 1)
+      CREATE OR REPLACE FUNCTION reserve_seat(
+        p_trip_id UUID,
+        p_captain_id UUID,
+        p_guest_whatsapp_id TEXT,
+        p_guest_name TEXT,
+        p_num_seats INT,
+        p_price_per_seat NUMERIC,
+        p_total_amount NUMERIC
+      ) RETURNS UUID AS $$
+      DECLARE
+        v_trip RECORD;
+        v_active_count INT;
+        v_booking_id UUID;
+      BEGIN
+        SELECT * INTO v_trip FROM trips WHERE id = p_trip_id FOR UPDATE;
+
+        IF v_trip IS NULL OR v_trip.status NOT IN ('open', 'confirmed') THEN
+          RAISE EXCEPTION 'TRIP_NOT_AVAILABLE';
+        END IF;
+
+        SELECT COALESCE(SUM(num_seats), 0) INTO v_active_count
+        FROM bookings
+        WHERE trip_id = p_trip_id
+          AND (
+            status IN ('authorized', 'confirmed')
+            OR (status = 'pending_payment' AND created_at > NOW() - INTERVAL '15 minutes')
+          );
+
+        IF v_active_count + p_num_seats > v_trip.max_seats THEN
+          RAISE EXCEPTION 'NO_SEATS_AVAILABLE';
+        END IF;
+
+        INSERT INTO bookings (
+          trip_id, captain_id, guest_whatsapp_id, guest_name,
+          num_seats, price_per_seat_aed, total_amount_aed, status
+        )
+        VALUES (
+          p_trip_id, p_captain_id, p_guest_whatsapp_id, p_guest_name,
+          p_num_seats, p_price_per_seat, p_total_amount, 'pending_payment'
+        )
+        RETURNING id INTO v_booking_id;
+
+        RETURN v_booking_id;
+      END;
+      $$ LANGUAGE plpgsql;
+    `,
+  },
 ];
 
 async function run() {

@@ -9,13 +9,13 @@ import { getTripSeatOccupancy } from '../services/bookings';
 export async function runThresholdCheck(): Promise<void> {
   logger.info('Running threshold check job');
 
-  // Cleanup: remove pending bookings older than 4 hours (abandoned checkouts)
-  const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+  // Cleanup: remove pending bookings older than 15 minutes (abandoned checkouts)
+  const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
   const { data: staleBookings } = await supabase
     .from('bookings')
     .select('*, trips!inner(id, trip_type, departure_at, status, max_seats)')
     .eq('status', 'pending_payment')
-    .lt('created_at', fourHoursAgo);
+    .lt('created_at', fifteenMinutesAgo);
 
   if (staleBookings && staleBookings.length > 0) {
     // Notify guests with real WhatsApp IDs before deleting
@@ -31,8 +31,21 @@ export async function runThresholdCheck(): Promise<void> {
           : '';
         await sendTextMessage(
           booking.guest_whatsapp_id,
-          `Your ${tripType} Trip booking has expired because payment was not completed within 4 hours.${rebookMsg}\n\nQuestions? Visit ${SUPPORT_CONTACT}`
+          `Your ${tripType} Trip booking has expired because payment was not completed in time.${rebookMsg}\n\nQuestions? Visit ${SUPPORT_CONTACT}`
         );
+      }
+    }
+
+    // Cancel Stripe PaymentIntents for stale holds
+    for (const booking of staleBookings) {
+      if (booking.stripe_payment_intent_id) {
+        try {
+          await cancelPaymentIntent(booking.stripe_payment_intent_id);
+          logger.info({ bookingId: booking.id, piId: booking.stripe_payment_intent_id }, 'Cancelled stale pending PI');
+        } catch (err) {
+          // PI may already be cancelled/expired — log but don't block cleanup
+          logger.warn({ err, bookingId: booking.id, piId: booking.stripe_payment_intent_id }, 'Could not cancel stale PI');
+        }
       }
     }
 
@@ -40,8 +53,8 @@ export async function runThresholdCheck(): Promise<void> {
       .from('bookings')
       .delete()
       .eq('status', 'pending_payment')
-      .lt('created_at', fourHoursAgo);
-    logger.info({ count: staleBookings.length }, 'Cleaned up stale pending bookings');
+      .lt('created_at', fifteenMinutesAgo);
+    logger.info({ count: staleBookings.length }, 'Cleaned up stale pending bookings (>15min)');
   }
 
   const hoursBeforeDeparture = parseInt(process.env.THRESHOLD_CHECK_HOURS_BEFORE || '12');
