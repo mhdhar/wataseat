@@ -1,5 +1,5 @@
 import { logger } from '../utils/logger';
-import { sendTextMessage, sendListMessage } from '../services/whatsapp';
+import { sendTextMessage, sendListMessage, sendImageMessage } from '../services/whatsapp';
 import { supabase } from '../db/supabase';
 import { Captain, TripType, TripWizardState } from '../types';
 import { createTrip } from '../services/trips';
@@ -434,8 +434,19 @@ export async function handleTripWizardStep(
 
         const shareMsg = `🚢 ${tripTypeLabel} Trip — ${formattedDate}\n📍 ${state.meeting_point || 'TBA'}\n⏰ ${formattedTime}${state.duration_hours ? ` (${state.duration_hours}h)` : ''}\n💰 AED ${state.price_per_person_aed}/person\n👥 ${state.max_seats} seats (need ${state.threshold} min to confirm)\n\nBook & pay securely:\n${bookingUrl}\n\nYour card is only charged if the trip confirms!`;
 
+        // Check if captain has a vessel image — send as image message with caption
+        const { data: captainForImage } = await supabase
+          .from('captains')
+          .select('vessel_image_url')
+          .eq('id', state.captain_id)
+          .single();
+
         await sendTextMessage(from, '📋 Forward the next message to your group:');
-        await sendTextMessage(from, shareMsg);
+        if (captainForImage?.vessel_image_url) {
+          await sendImageMessage(from, captainForImage.vessel_image_url, shareMsg);
+        } else {
+          await sendTextMessage(from, shareMsg);
+        }
 
         logger.info({ tripId: trip.id, captainId: state.captain_id }, 'Trip created via wizard');
       } else {

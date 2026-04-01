@@ -25,6 +25,7 @@ app.use(helmet({
     directives: {
       ...helmet.contentSecurityPolicy.getDefaultDirectives(),
       'script-src': ["'self'", "'unsafe-inline'"],
+      'img-src': ["'self'", 'https://*.supabase.co', 'data:'],
       'form-action': ["'self'", 'https://checkout.stripe.com'],
     },
   },

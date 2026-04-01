@@ -132,7 +132,7 @@ async function handleImageMessage(from: string, message: any): Promise<void> {
         state.step = 'confirm';
         await redis.set(`trip_wizard:${from}`, JSON.stringify(state), { ex: 600 });
 
-        await sendTextMessage(from, '📸 Vessel photo saved! It will be shown to guests on the booking page.');
+        await sendTextMessage(from, '📸 Vessel photo saved! It will be shown to guests on the booking page and in the trip share message.');
 
         // Show trip summary
         const departureAt = `${state.departure_date}T${state.departure_time}:00+04:00`;
@@ -145,7 +145,7 @@ async function handleImageMessage(from: string, message: any): Promise<void> {
 
         await sendTextMessage(
           from,
-          `📋 Trip Summary\n\n🚢 Type: ${state.trip_type}\n📅 Date: ${formattedDate}\n⏰ Time: ${formattedTime}\n⏱ Duration: ${state.duration_hours}h\n📍 Meeting: ${state.meeting_point}${locationLine}\n👥 Seats: ${state.max_seats} max, ${state.threshold} minimum\n💰 Price: AED ${state.price_per_person_aed}/person\n\nReply YES to confirm and post, or NO to cancel.`
+          `📋 Trip Summary\n\n🚢 Type: ${state.trip_type}\n📅 Date: ${formattedDate}\n⏰ Time: ${formattedTime}\n⏱ Duration: ${state.duration_hours}h\n📍 Meeting: ${state.meeting_point}${locationLine}\n👥 Seats: ${state.max_seats} max, ${state.threshold} minimum\n💰 Price: AED ${state.price_per_person_aed}/person\n📸 Vessel photo: attached\n\nReply YES to confirm and post, or NO to cancel.`
         );
       } catch (err) {
         logger.error({ err, from }, 'Failed to process vessel image in wizard');
