@@ -360,6 +360,49 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
       break;
     }
 
+    case 'checkout.session.expired': {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const piId = session.payment_intent as string;
+
+      if (!piId) break;
+
+      // Retrieve the PI to get booking_id from metadata
+      const pi = await stripe.paymentIntents.retrieve(piId);
+      const bookingId = pi.metadata.booking_id;
+
+      if (!bookingId) {
+        logger.warn({ sessionId: session.id }, 'Expired checkout session missing booking metadata');
+        break;
+      }
+
+      // Only cancel if still pending_payment (don't touch authorized/confirmed)
+      const { data: updated } = await supabase
+        .from('bookings')
+        .update({
+          status: 'cancelled',
+          cancelled_at: new Date().toISOString(),
+          cancellation_reason: 'checkout_expired',
+        })
+        .eq('id', bookingId)
+        .eq('status', 'pending_payment')
+        .select('id');
+
+      if (updated?.length) {
+        logger.info({ bookingId }, 'Cancelled pending booking from expired checkout session');
+      }
+
+      // Also cancel the PI on Stripe side to release any pending authorization
+      try {
+        if (pi.status === 'requires_payment_method' || pi.status === 'requires_confirmation') {
+          await stripe.paymentIntents.cancel(piId);
+        }
+      } catch (cancelPiErr) {
+        logger.warn({ err: cancelPiErr, piId }, 'Failed to cancel PI for expired session (may already be cancelled)');
+      }
+
+      break;
+    }
+
     default:
       logger.debug({ eventType: event.type }, 'Unhandled Stripe event');
   }

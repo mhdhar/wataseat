@@ -511,6 +511,14 @@ const migrations: { name: string; sql: string }[] = [
       );
     `,
   },
+  {
+    name: '017_pending_booking_lookup_index',
+    sql: `
+      CREATE INDEX IF NOT EXISTS idx_bookings_pending_session_trip
+      ON bookings (trip_id, guest_whatsapp_id, status, created_at DESC)
+      WHERE status = 'pending_payment';
+    `,
+  },
 ];
 
 async function run() {
