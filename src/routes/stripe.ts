@@ -28,13 +28,13 @@ router.post('/', async (req: Request, res: Response) => {
     return;
   }
 
-  res.json({ received: true });
-
   try {
     await handleStripeEvent(event);
   } catch (err) {
     logger.error({ err, eventType: event.type }, 'Error handling Stripe event');
   }
+
+  res.json({ received: true });
 });
 
 const EVENT_DEDUP_TTL = 86400; // 24 hours — covers Stripe's retry window

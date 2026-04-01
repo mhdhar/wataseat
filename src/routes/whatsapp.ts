@@ -48,15 +48,16 @@ router.post('/', async (req: Request, res: Response) => {
     return;
   }
 
-  // Respond immediately — Meta requires response within 5 seconds
-  res.status(200).json({ status: 'ok' });
-
-  // Process async
+  // Process webhook before responding — on Vercel serverless, the function
+  // can be frozen after the response is sent, killing async work.
+  // Meta allows ~20s before retrying, so processing first is safe.
   try {
     await processWebhook(req.body);
   } catch (err) {
     logger.error({ err }, 'Error processing WhatsApp webhook');
   }
+
+  res.status(200).json({ status: 'ok' });
 });
 
 async function processWebhook(body: any): Promise<void> {
