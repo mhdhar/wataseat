@@ -380,9 +380,10 @@ export async function captureAllForTrip(tripId: string): Promise<void> {
   for (const booking of capturedBookings) {
     if (booking.guest_whatsapp_id && !booking.guest_whatsapp_id.startsWith('pending')) {
       const name = booking.guest_name?.split(' ')[0] || 'there';
+      const seatsLine = booking.num_seats > 1 ? `\n🎟 ${booking.num_seats} seats` : '';
       await sendTextMessage(
         booking.guest_whatsapp_id,
-        `🎉 Trip confirmed, ${name}!\n\nBooking ID: ${booking.id.substring(0, 8)}\n${tripType} Trip — ${depDate} at ${depTime}\n📍 Meeting: ${trip.meeting_point || 'TBA'}${locationLine}\n💰 AED ${booking.total_amount_aed} charged to your card.\n\nSee you there!`
+        `🎉 Trip confirmed, ${name}!\n\nBooking ID: ${booking.id.substring(0, 8)}\n${tripType} Trip — ${depDate} at ${depTime}${seatsLine}\n📍 Meeting: ${trip.meeting_point || 'TBA'}${locationLine}\n💰 AED ${booking.total_amount_aed} charged to your card.\n\nSee you there!`
       );
     }
   }
@@ -395,10 +396,11 @@ export async function captureAllForTrip(tripId: string): Promise<void> {
     .single();
 
   if (captain) {
+    const totalSeats = capturedBookings.reduce((sum, b) => sum + (b.num_seats || 1), 0);
     const totalGrossMsg = capturedBookings.reduce((sum, b) => sum + Number(b.total_amount_aed), 0);
     await sendTextMessage(
       captain.whatsapp_id,
-      `✅ Your ${tripType} Trip [${trip.id.substring(0, 6)}] is confirmed!\n\n${capturedBookings.length} seats booked. All payments captured.\nTotal: AED ${totalGrossMsg}\n\nHave a great trip!`
+      `✅ Your ${tripType} Trip [${trip.id.substring(0, 6)}] is confirmed!\n\n${totalSeats} seat${totalSeats !== 1 ? 's' : ''} booked. All payments captured.\nTotal: AED ${totalGrossMsg}\n\nHave a great trip!`
     );
   }
 

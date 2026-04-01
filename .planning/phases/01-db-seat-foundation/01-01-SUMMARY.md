@@ -109,3 +109,14 @@ None - no external service configuration required. Run `npx tsx supabase/migrati
 ---
 *Phase: 01-db-seat-foundation*
 *Completed: 2026-03-31*
+
+## Self-Check: PASSED
+
+- FOUND: supabase/migrations/run_migrations.ts
+- FOUND: src/types/index.ts
+- FOUND: src/services/bookings.ts
+- FOUND: src/services/trips.ts
+- FOUND: .planning/phases/01-db-seat-foundation/01-01-SUMMARY.md
+- FOUND commit: 38af2d2 (migration 012)
+- FOUND commit: 9b37ab7 (types + helper + deletion)
+- FOUND commit: ef72dcd (plan metadata)

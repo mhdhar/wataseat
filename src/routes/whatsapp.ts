@@ -5,6 +5,15 @@ import { handleCommand } from '../handlers/commandHandler';
 import { handleButton } from '../handlers/buttonHandler';
 import { handleOnboarding } from '../handlers/onboardingHandler';
 import { supabase } from '../db/supabase';
+import { sendTextMessage } from '../services/whatsapp';
+import { downloadWhatsAppMedia, uploadVesselImage } from '../services/mediaStorage';
+import { Redis } from '@upstash/redis';
+import { TripWizardState } from '../types';
+
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+});
 
 const router = Router();
 
@@ -95,8 +104,79 @@ async function processWebhook(body: any): Promise<void> {
         // List selection — route to onboarding handler as text (for wizard steps)
         await handleOnboarding(from, listReply.title, message);
       }
+    } else if (message.type === 'image') {
+      await handleImageMessage(from, message);
     }
   }
+}
+
+async function handleImageMessage(from: string, message: any): Promise<void> {
+  const mediaId = message.image?.id;
+  if (!mediaId) return;
+
+  // Check 1: Trip wizard expecting vessel image
+  const wizardRaw = await redis.get<string>(`trip_wizard:${from}`);
+  if (wizardRaw) {
+    const state: TripWizardState = typeof wizardRaw === 'string' ? JSON.parse(wizardRaw) : wizardRaw as any;
+    if (state.step === 'vessel_image') {
+      try {
+        const { buffer, mimeType } = await downloadWhatsAppMedia(mediaId);
+        const publicUrl = await uploadVesselImage(state.captain_id, buffer, mimeType);
+
+        await supabase
+          .from('captains')
+          .update({ vessel_image_url: publicUrl })
+          .eq('id', state.captain_id);
+
+        // Advance wizard to confirm
+        state.step = 'confirm';
+        await redis.set(`trip_wizard:${from}`, JSON.stringify(state), { ex: 600 });
+
+        await sendTextMessage(from, '📸 Vessel photo saved! It will be shown to guests on the booking page.');
+
+        // Show trip summary
+        const departureAt = `${state.departure_date}T${state.departure_time}:00+04:00`;
+        const date = new Date(departureAt);
+        const formattedDate = date.toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' });
+        const formattedTime = date.toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit' });
+        const locationLine = state.location_url
+          ? `\n🗺 Location: ${state.location_url} (shared on confirmation)`
+          : '\n🗺 Location: Will be shared later';
+
+        await sendTextMessage(
+          from,
+          `📋 Trip Summary\n\n🚢 Type: ${state.trip_type}\n📅 Date: ${formattedDate}\n⏰ Time: ${formattedTime}\n⏱ Duration: ${state.duration_hours}h\n📍 Meeting: ${state.meeting_point}${locationLine}\n👥 Seats: ${state.max_seats} max, ${state.threshold} minimum\n💰 Price: AED ${state.price_per_person_aed}/person\n\nReply YES to confirm and post, or NO to cancel.`
+        );
+      } catch (err) {
+        logger.error({ err, from }, 'Failed to process vessel image in wizard');
+        await sendTextMessage(from, 'Failed to process the image. Please try again or type SKIP.');
+      }
+      return;
+    }
+  }
+
+  // Check 2: /updatephoto command waiting for image
+  const photoUpload = await redis.get<string>(`photo_upload:${from}`);
+  if (photoUpload) {
+    try {
+      const { buffer, mimeType } = await downloadWhatsAppMedia(mediaId);
+      const publicUrl = await uploadVesselImage(photoUpload, buffer, mimeType);
+
+      await supabase
+        .from('captains')
+        .update({ vessel_image_url: publicUrl })
+        .eq('id', photoUpload);
+
+      await redis.del(`photo_upload:${from}`);
+      await sendTextMessage(from, '✅ Vessel photo updated! It will appear on all your trip booking pages.');
+    } catch (err) {
+      logger.error({ err, from }, 'Failed to process vessel photo update');
+      await sendTextMessage(from, 'Failed to process the image. Please try sending it again.');
+    }
+    return;
+  }
+
+  // No active context expecting an image — ignore silently
 }
 
 async function logNotification(data: {

@@ -35,7 +35,7 @@ router.get('/:shortId', async (req: Request, res: Response) => {
     // Find trip by short ID
     const { data: trips } = await supabase
       .from('trips')
-      .select('*, captains!inner(display_name, is_active)')
+      .select('*, captains!inner(display_name, is_active, vessel_image_url)')
       .in('status', ['open', 'confirmed']);
 
     const trip = trips?.find((t: any) => t.id.substring(0, 6) === shortId);
@@ -85,6 +85,7 @@ router.get('/:shortId', async (req: Request, res: Response) => {
       maxSeats: trip.max_seats,
       threshold: trip.threshold,
       captainName,
+      vesselImageUrl: (trip as any).captains?.vessel_image_url || null,
       checkoutUrl: `${baseUrl}/book/${shortId}/checkout`,
     }));
   } catch (err) {
@@ -329,6 +330,7 @@ function bookingPage(data: {
   maxSeats: number;
   threshold: number;
   captainName: string;
+  vesselImageUrl: string | null;
   checkoutUrl: string;
 }): string {
   return `<!DOCTYPE html>
@@ -368,6 +370,7 @@ function bookingPage(data: {
         <h1>${data.tripTypeLabel} Trip</h1>
         <p>by ${data.captainName}</p>
       </div>
+      ${data.vesselImageUrl ? `<img src="${data.vesselImageUrl}" alt="Vessel" style="width:100%; max-height:220px; object-fit:cover;">` : ''}
       <div class="details">
         <div class="row"><span class="label">Date</span><span class="value">${data.formattedDate}</span></div>
         <div class="row"><span class="label">Time</span><span class="value">${data.formattedTime}${data.durationHours ? ` (${data.durationHours}h)` : ''}</span></div>

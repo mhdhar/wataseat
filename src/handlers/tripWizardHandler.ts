@@ -96,6 +96,28 @@ export async function handleTripWizardStep(
 
   // Handle "back" command
   if (input.toLowerCase() === 'back') {
+    // vessel_image is a conditional step not in STEP_ORDER
+    if (state.step === 'vessel_image') {
+      state.price_per_person_aed = undefined;
+      state.step = 'price';
+      await saveState(from, state);
+      await sendStepPrompt(from, state);
+      return;
+    }
+    if (state.step === 'confirm') {
+      // Check if captain has no vessel image — go back to vessel_image step
+      const { data: captainCheck } = await supabase
+        .from('captains')
+        .select('vessel_image_url')
+        .eq('id', state.captain_id)
+        .single();
+      if (!captainCheck?.vessel_image_url) {
+        state.step = 'vessel_image';
+        await saveState(from, state);
+        await sendStepPrompt(from, state);
+        return;
+      }
+    }
     const currentIdx = STEP_ORDER.indexOf(state.step);
     if (currentIdx <= 0) {
       await sendTextMessage(from, "You're at the first step. Type /trip to restart.");
@@ -295,6 +317,23 @@ export async function handleTripWizardStep(
       }
 
       state.price_per_person_aed = price;
+
+      // Check if captain already has a vessel image
+      const { data: captainData } = await supabase
+        .from('captains')
+        .select('vessel_image_url')
+        .eq('id', state.captain_id)
+        .single();
+
+      if (!captainData?.vessel_image_url) {
+        // No image yet — ask for one
+        state.step = 'vessel_image';
+        await saveState(from, state);
+        await sendTextMessage(from, '📸 Send a photo of your vessel! This will be shown to guests on the booking page.\n\nType SKIP if you\'d like to add it later.');
+        break;
+      }
+
+      // Already has image — go straight to confirm
       state.step = 'confirm';
       await saveState(from, state);
 
@@ -312,6 +351,30 @@ export async function handleTripWizardStep(
         from,
         `📋 Trip Summary\n\n🚢 Type: ${state.trip_type}\n📅 Date: ${formattedDate}\n⏰ Time: ${formattedTime}\n⏱ Duration: ${state.duration_hours}h\n📍 Meeting: ${state.meeting_point}${locationLine}\n👥 Seats: ${state.max_seats} max, ${state.threshold} minimum\n💰 Price: AED ${state.price_per_person_aed}/person\n\nReply YES to confirm and post, or NO to cancel.`
       );
+      break;
+    }
+
+    case 'vessel_image': {
+      if (input.toUpperCase() === 'SKIP') {
+        state.step = 'confirm';
+        await saveState(from, state);
+
+        const departureAt = `${state.departure_date}T${state.departure_time}:00+04:00`;
+        const date = new Date(departureAt);
+        const formattedDate = date.toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' });
+        const formattedTime = date.toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit' });
+        const locationLine = state.location_url
+          ? `\n🗺 Location: ${state.location_url} (shared on confirmation)`
+          : '\n🗺 Location: Will be shared later';
+
+        await sendTextMessage(
+          from,
+          `📋 Trip Summary\n\n🚢 Type: ${state.trip_type}\n📅 Date: ${formattedDate}\n⏰ Time: ${formattedTime}\n⏱ Duration: ${state.duration_hours}h\n📍 Meeting: ${state.meeting_point}${locationLine}\n👥 Seats: ${state.max_seats} max, ${state.threshold} minimum\n💰 Price: AED ${state.price_per_person_aed}/person\n\nReply YES to confirm and post, or NO to cancel.`
+        );
+      } else {
+        // Text that isn't SKIP — they need to send an image
+        await sendTextMessage(from, 'Please send a photo of your vessel, or type SKIP to continue without one.');
+      }
       break;
     }
 
@@ -445,6 +508,9 @@ async function sendStepPrompt(from: string, state: TripWizardState): Promise<voi
       break;
     case 'price':
       await sendTextMessage(from, 'Price per person in AED? (e.g. 250)');
+      break;
+    case 'vessel_image':
+      await sendTextMessage(from, '📸 Send a photo of your vessel! This will be shown to guests on the booking page.\n\nType SKIP if you\'d like to add it later.');
       break;
     case 'confirm': {
       const departureAt = `${state.departure_date}T${state.departure_time}:00+04:00`;

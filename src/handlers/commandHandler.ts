@@ -58,6 +58,9 @@ export async function handleCommand(
     case '/earnings':
       await handleEarningsCommand(from);
       break;
+    case '/updatephoto':
+      await handleUpdatePhotoCommand(from);
+      break;
     default:
       await sendTextMessage(from, `Unknown command: ${command}\nType /help to see available commands.`);
   }
@@ -66,7 +69,7 @@ export async function handleCommand(
 async function handleHelp(from: string): Promise<void> {
   await sendTextMessage(
     from,
-    `🚢 WataSeat Commands\n\n/trip — Create a new trip\n/repeat — Repeat your last trip (new date/time)\n/edit [ID] — Edit a trip's details\n/trips — View your upcoming trips\n/status [ID] — Check a trip's bookings\n/cancel [ID] — Cancel a trip\n/earnings — View your earnings & payouts\n/connect — Set up or update your Stripe account\n\nNeed help? Visit wataseat.com/support`
+    `🚢 WataSeat Commands\n\n/trip — Create a new trip\n/repeat — Repeat your last trip (new date/time)\n/edit [ID] — Edit a trip's details\n/trips — View your upcoming trips\n/status [ID] — Check a trip's bookings\n/cancel [ID] — Cancel a trip\n/earnings — View your earnings & payouts\n/connect — Set up or update your Stripe account\n/updatephoto — Update your vessel photo\n\nNeed help? Visit wataseat.com/support`
   );
 }
 
@@ -347,6 +350,22 @@ async function handleRepeatCommand(from: string): Promise<void> {
     from,
     `🔄 Repeat your last trip:\n\n🚢 ${tripTypeLabel} Trip\n📍 ${lastTrip.meeting_point || 'TBA'}\n⏰ ${lastTime} (${lastTrip.duration_hours || '?'}h)\n💰 AED ${lastTrip.price_per_person_aed}/person\n👥 ${lastTrip.max_seats} seats (min ${lastTrip.threshold})\n\nJust need a new date and departure time.\n\nWhat date? (e.g. 28/03 or 28 March)`
   );
+}
+
+async function handleUpdatePhotoCommand(from: string): Promise<void> {
+  const captain = await getCaptain(from);
+  if (!captain) {
+    await sendTextMessage(from, "You're not registered as a captain.");
+    return;
+  }
+  if (captain.onboarding_step !== 'complete') {
+    await sendTextMessage(from, 'Please complete your onboarding first.');
+    return;
+  }
+
+  // Store captain ID in Redis so the image handler knows who this is for
+  await redis.set(`photo_upload:${from}`, captain.id, { ex: 300 }); // 5 min TTL
+  await sendTextMessage(from, '📸 Send me a new photo of your vessel. This will replace your current one and appear on all your trip booking pages.');
 }
 
 async function handleEarningsCommand(from: string): Promise<void> {

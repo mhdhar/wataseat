@@ -144,6 +144,25 @@ export async function sendTemplateMessage(
   return messageId;
 }
 
+export async function sendImageMessage(
+  to: string,
+  imageUrl: string,
+  caption?: string
+): Promise<string | undefined> {
+  const image: any = { link: imageUrl };
+  if (caption) image.caption = caption;
+
+  const messageId = await sendMessage({
+    messaging_product: 'whatsapp',
+    to,
+    type: 'image',
+    image,
+  });
+
+  await logOutbound(to, 'image', messageId);
+  return messageId;
+}
+
 async function logOutbound(
   recipientWaId: string,
   messageType: string,

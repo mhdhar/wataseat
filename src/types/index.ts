@@ -10,6 +10,7 @@ export interface Captain {
   whatsapp_id: string;
   display_name: string;
   boat_name: string | null;
+  vessel_image_url: string | null;
   license_number: string | null;
   onboarding_step: OnboardingStep;
   is_active: boolean;
@@ -173,7 +174,7 @@ export class WataSeatError extends Error {
 
 // Wizard state for trip creation (stored in Redis)
 export interface TripWizardState {
-  step: 'trip_type' | 'date' | 'time' | 'duration' | 'emirate' | 'meeting_point' | 'location_url' | 'max_seats' | 'threshold' | 'price' | 'confirm';
+  step: 'trip_type' | 'date' | 'time' | 'duration' | 'emirate' | 'meeting_point' | 'location_url' | 'max_seats' | 'threshold' | 'price' | 'vessel_image' | 'confirm';
   captain_id: string;
   group_id?: string;
   trip_type?: TripType;

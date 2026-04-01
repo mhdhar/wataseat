@@ -492,6 +492,12 @@ const migrations: { name: string; sql: string }[] = [
       CREATE INDEX IF NOT EXISTS idx_refund_audit_created ON refund_audit(created_at DESC);
     `,
   },
+  {
+    name: '015_captains_vessel_image',
+    sql: `
+      ALTER TABLE captains ADD COLUMN IF NOT EXISTS vessel_image_url TEXT;
+    `,
+  },
 ];
 
 async function run() {
