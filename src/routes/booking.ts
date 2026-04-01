@@ -20,7 +20,7 @@ const checkoutLimiter = rateLimit({
     // Use express-rate-limit's built-in IP key generator for proper IPv6 handling
     return req.ip ?? 'unknown';
   },
-  validate: { ip: false } as any,
+  validate: false as any,
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: false,

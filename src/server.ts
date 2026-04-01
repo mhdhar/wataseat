@@ -33,10 +33,12 @@ app.use(helmet({
     },
   },
 }));
-app.use(cors(process.env.NODE_ENV === 'production' ? {
-  origin: 'https://wataseat.com',
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production'
+    ? ['https://wataseat.com', 'https://www.wataseat.com', 'https://admin.wataseat.com']
+    : true,
   credentials: true,
-} : {}));
+}));
 
 // Rate limiting on webhook endpoints — 100 req/min
 const webhookLimiter = rateLimit({
@@ -44,6 +46,7 @@ const webhookLimiter = rateLimit({
   max: 100,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: false as any,
   message: { error: 'Too many requests' },
 });
 
