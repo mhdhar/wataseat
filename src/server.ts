@@ -29,7 +29,7 @@ app.use(helmet({
       ...helmet.contentSecurityPolicy.getDefaultDirectives(),
       'script-src': ["'self'", "'unsafe-inline'"],
       'img-src': ["'self'", 'https://*.supabase.co', 'data:'],
-      'form-action': ["'self'", 'https://checkout.stripe.com'],
+      'form-action': ["'self'", 'https://wataseat.com', 'https://www.wataseat.com', 'https://checkout.stripe.com'],
     },
   },
 }));
