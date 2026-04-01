@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { logger } from '../utils/logger';
 import { supabase } from '../db/supabase';
+import { Redis } from '@upstash/redis';
 
 const GRAPH_API_URL = `https://graph.facebook.com/v18.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
 const AUTH_HEADER = { Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}` };
@@ -8,6 +9,15 @@ const AUTH_HEADER = { Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN
 // Rate limiting: track last send time to avoid hitting Meta API limits
 let lastSendTime = 0;
 const MIN_SEND_INTERVAL_MS = 100; // 100ms between messages (~10/sec, well under Meta's 80/sec limit)
+
+// Test mode: capture outbound messages in Redis instead of sending to Meta
+let testRedis: Redis | null = null;
+if (process.env.WATASEAT_TEST_MODE === 'true') {
+  testRedis = new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL!,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+  });
+}
 
 async function sendMessage(payload: any): Promise<string | undefined> {
   // Enforce minimum interval between sends
@@ -17,6 +27,17 @@ async function sendMessage(payload: any): Promise<string | undefined> {
     await new Promise(resolve => setTimeout(resolve, MIN_SEND_INTERVAL_MS - elapsed));
   }
   lastSendTime = Date.now();
+
+  // Test mode: capture to Redis instead of calling Meta API
+  if (testRedis) {
+    const fakeId = `wamid.test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    await testRedis.rpush(
+      `test:outbound:${payload.to}`,
+      JSON.stringify({ ...payload, _testMessageId: fakeId, _timestamp: Date.now() })
+    );
+    logger.info({ to: payload.to, messageId: fakeId }, 'TEST MODE: message captured');
+    return fakeId;
+  }
 
   try {
     const response = await axios.post(GRAPH_API_URL, payload, {
