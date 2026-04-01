@@ -278,45 +278,48 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
         await stripe.paymentIntents.update(piId, {
           metadata: { ...pi.metadata, guest_wa_id: whatsappNumber },
         });
+      } else {
+        logger.warn({ bookingId, sessionId: session.id }, 'Guest did not provide WhatsApp number during checkout');
+      }
 
-        // Wait for PI handler to finish incrementing booking count
-        // (both webhooks fire simultaneously; PI handler needs time to commit)
-        await new Promise(resolve => setTimeout(resolve, 2000));
+      // Wait for PI handler to finish (both webhooks fire simultaneously)
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
-        // Read fresh data after delay
-        const { data: booking } = await supabase
-          .from('bookings')
+      // Read fresh data after delay
+      const { data: booking } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('id', bookingId)
+        .single();
+
+      if (booking) {
+        const { data: freshTrip } = await supabase
+          .from('trips')
           .select('*')
-          .eq('id', bookingId)
+          .eq('id', booking.trip_id)
           .single();
 
-        if (booking) {
-          const { data: freshTrip } = await supabase
-            .from('trips')
-            .select('*')
-            .eq('id', booking.trip_id)
-            .single();
+        if (!freshTrip) break;
 
-          if (!freshTrip) break;
+        const freshOccupancy = await getTripSeatOccupancy(freshTrip.id);
+        const filledSeats = freshOccupancy.total_occupied_seats;
 
-          const freshOccupancy = await getTripSeatOccupancy(freshTrip.id);
-          const filledSeats = freshOccupancy.total_occupied_seats;
+        const tripType = freshTrip.trip_type.charAt(0).toUpperCase() + freshTrip.trip_type.slice(1);
+        const tripShortId = freshTrip.id.substring(0, 6);
+        const bookingShortId = booking.id.substring(0, 8);
+        const depDate = new Date(freshTrip.departure_at).toLocaleDateString('en-AE', {
+          weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Asia/Dubai',
+        });
+        const depTime = new Date(freshTrip.departure_at).toLocaleTimeString('en-AE', {
+          hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Dubai',
+        });
+        const locationLine = freshTrip.location_url ? `\n📍 Location: ${freshTrip.location_url}` : '';
 
-          const tripType = freshTrip.trip_type.charAt(0).toUpperCase() + freshTrip.trip_type.slice(1);
-          const tripShortId = freshTrip.id.substring(0, 6);
-          const bookingShortId = booking.id.substring(0, 8);
-          const depDate = new Date(freshTrip.departure_at).toLocaleDateString('en-AE', {
-            weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Asia/Dubai',
-          });
-          const depTime = new Date(freshTrip.departure_at).toLocaleTimeString('en-AE', {
-            hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Dubai',
-          });
-          const locationLine = freshTrip.location_url ? `\n📍 Location: ${freshTrip.location_url}` : '';
+        const isConfirmed = freshTrip.status === 'confirmed' || booking.status === 'confirmed';
+        const thresholdMet = filledSeats >= freshTrip.threshold;
 
-          const isConfirmed = freshTrip.status === 'confirmed' || booking.status === 'confirmed';
-          const thresholdMet = filledSeats >= freshTrip.threshold;
-
-          // Guest confirmation
+        // Guest WhatsApp notification (only if they provided their number)
+        if (whatsappNumber) {
           let thresholdMsg: string;
           if (isConfirmed) {
             thresholdMsg = `🎉 Trip confirmed — you're ready to sail! Your card has been charged.${locationLine}`;
@@ -332,24 +335,24 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
             whatsappNumber,
             `✅ Booking confirmed!\n\nBooking ID: ${bookingShortId}\n${tripType} Trip — ${depDate} at ${depTime}\n📍 ${freshTrip.meeting_point || 'TBA'}${seatsLine}\n💰 AED ${booking.total_amount_aed}\n\n${thresholdMsg}`
           );
+        }
 
-          // Captain notification — new booking
-          const { data: captain } = await supabase
-            .from('captains')
-            .select('whatsapp_id')
-            .eq('id', freshTrip.captain_id)
-            .single();
+        // Captain notification — ALWAYS sent regardless of guest WhatsApp number
+        const { data: captain } = await supabase
+          .from('captains')
+          .select('whatsapp_id')
+          .eq('id', freshTrip.captain_id)
+          .single();
 
-          if (captain) {
-            const captainThresholdMsg = thresholdMet
-              ? `\n\n✅ Threshold met! Trip is confirmed.`
-              : `\n\nNeed ${freshTrip.threshold - filledSeats} more to confirm.`;
-            const captainSeatsLine = booking.num_seats > 1 ? ` (${booking.num_seats} seats)` : '';
-            await sendTextMessage(
-              captain.whatsapp_id,
-              `🎉 New booking! ${guestName || 'A guest'}${captainSeatsLine} booked your ${tripType} Trip [${tripShortId}].\n\n📅 ${depDate} at ${depTime}\nBooking ID: ${bookingShortId}\n${filledSeats}/${freshTrip.max_seats} seats filled.${captainThresholdMsg}`
-            );
-          }
+        if (captain) {
+          const captainThresholdMsg = thresholdMet
+            ? `\n\n✅ Threshold met! Trip is confirmed.`
+            : `\n\nNeed ${freshTrip.threshold - filledSeats} more to confirm.`;
+          const captainSeatsLine = booking.num_seats > 1 ? ` (${booking.num_seats} seats)` : '';
+          await sendTextMessage(
+            captain.whatsapp_id,
+            `🎉 New booking! ${guestName || 'A guest'}${captainSeatsLine} booked your ${tripType} Trip [${tripShortId}].\n\n📅 ${depDate} at ${depTime}\nBooking ID: ${bookingShortId}\n${filledSeats}/${freshTrip.max_seats} seats filled.${captainThresholdMsg}`
+          );
         }
       }
 
