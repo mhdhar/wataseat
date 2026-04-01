@@ -13,8 +13,18 @@ npm run dev          # Start dev server (tsx watch src/server.ts)
 npm run build        # TypeScript compilation
 npm start            # Production (node dist/server.js)
 npx tsc --noEmit     # Type check without emitting
-ngrok http 3000      # Expose local server for webhook testing
 ```
+
+## Deployment
+
+**Production:** Vercel at `wataseat.com`
+- Backend: Express app exported as Vercel serverless function (`api/index.ts`)
+- Landing page: Static HTML (`public/index.html`) — bilingual EN/AR
+- Admin dashboard: Next.js app in `admin/`
+- Cron jobs: Vercel Cron hitting `/api/cron/threshold`, `/api/cron/reauth`, `/api/cron/summary`
+- Config: `vercel.json` routes all traffic to the appropriate handler
+
+**Local dev:** `npm run dev` starts Express on `PORT` from `.env`, use ngrok for webhook testing
 
 ## Architecture
 
@@ -35,7 +45,7 @@ Express.js backend receiving webhooks from Meta WhatsApp Cloud API and Stripe, b
 
 **State machines:**
 - Captain onboarding: `start → name → boat_name → license → stripe → complete` (persisted in `captains.onboarding_step`)
-- Trip wizard: `trip_type → date → time → duration → meeting_point → max_seats → threshold → price → confirm` (stored in Redis with 10min TTL)
+- Trip wizard: `trip_type → date → time → duration → emirate → meeting_point → location_url → max_seats → threshold → price → [vessel_image] → confirm` (stored in Redis with 10min TTL, vessel_image step conditional)
 - Cancel confirmation: stored in Redis with 5min TTL
 
 ## Critical Rules
@@ -70,4 +80,4 @@ All in `.env` — see `.env.example` for the full list. Key ones: `WHATSAPP_PHON
 
 ## Documentation
 
-Detailed specs in `docs/`: ARCHITECTURE.md, DATABASE_SCHEMA.md, STRIPE_FLOW.md, WHATSAPP_SETUP.md, API_SPEC.md, ROADMAP.md
+Detailed specs in `docs/`: ARCHITECTURE.md, DATABASE_SCHEMA.md, STRIPE_FLOW.md, WHATSAPP_SETUP.md, API_SPEC.md, ROADMAP.md, GO_LIVE_CHECKLIST.md, MIGRATION_PLAN.md

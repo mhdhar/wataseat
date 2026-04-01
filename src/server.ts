@@ -14,6 +14,9 @@ import adminRouter from './routes/admin';
 import bookingRouter from './routes/booking';
 import { startCronJobs } from './jobs/scheduler';
 import { sendTextMessage } from './services/whatsapp';
+import { runThresholdCheck } from './jobs/thresholdCheck';
+import { runReauthorization } from './jobs/reauthorize';
+import { runCaptainDailySummary } from './jobs/dailySummary';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -30,7 +33,10 @@ app.use(helmet({
     },
   },
 }));
-app.use(cors());
+app.use(cors(process.env.NODE_ENV === 'production' ? {
+  origin: 'https://wataseat.com',
+  credentials: true,
+} : {}));
 
 // Rate limiting on webhook endpoints — 100 req/min
 const webhookLimiter = rateLimit({
@@ -82,6 +88,49 @@ app.use('/webhooks/whatsapp', whatsappRouter);
 app.use('/webhooks/stripe', stripeRouter);
 app.use('/api/admin', adminRouter);
 app.use('/book', bookingRouter);
+
+// Vercel Cron endpoints
+function verifyCron(req: Request, res: Response): boolean {
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret && req.headers.authorization !== `Bearer ${cronSecret}`) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return false;
+  }
+  return true;
+}
+
+app.get('/api/cron/threshold', async (req: Request, res: Response) => {
+  if (!verifyCron(req, res)) return;
+  try {
+    await runThresholdCheck();
+    res.json({ ok: true, job: 'threshold' });
+  } catch (err) {
+    logger.error({ err }, 'Cron threshold check failed');
+    res.status(500).json({ error: 'Threshold check failed' });
+  }
+});
+
+app.get('/api/cron/reauth', async (req: Request, res: Response) => {
+  if (!verifyCron(req, res)) return;
+  try {
+    await runReauthorization();
+    res.json({ ok: true, job: 'reauth' });
+  } catch (err) {
+    logger.error({ err }, 'Cron reauth failed');
+    res.status(500).json({ error: 'Reauth failed' });
+  }
+});
+
+app.get('/api/cron/summary', async (req: Request, res: Response) => {
+  if (!verifyCron(req, res)) return;
+  try {
+    await runCaptainDailySummary();
+    res.json({ ok: true, job: 'summary' });
+  } catch (err) {
+    logger.error({ err }, 'Cron summary failed');
+    res.status(500).json({ error: 'Summary failed' });
+  }
+});
 
 // Health check
 app.get('/health', async (_req, res) => {
@@ -147,9 +196,12 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-app.listen(PORT, () => {
-  logger.info({ port: PORT }, 'WataSeat server started');
-  startCronJobs();
-});
+// Only listen + start cron when running as standalone server (not Vercel serverless)
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    logger.info({ port: PORT }, 'WataSeat server started');
+    startCronJobs();
+  });
+}
 
 export default app;

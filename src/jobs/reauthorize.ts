@@ -67,7 +67,7 @@ export async function runReauthorization(): Promise<void> {
       const depTime = new Date(trip.departure_at).toLocaleTimeString('en-AE', {
         hour: '2-digit', minute: '2-digit',
       });
-      const baseUrl = process.env.APP_URL || 'http://localhost:3002';
+      const baseUrl = process.env.APP_URL || 'http://localhost:3000';
 
       // Fetch captain's Stripe account for Connect routing
       const { data: captain } = await supabase

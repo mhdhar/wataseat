@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WataSeat - WhatsApp Boat Booking</title>
+  <meta name="description" content="Book boat trips via WhatsApp. Fishing, diving & cruising in the UAE. Pay securely, only charged when the trip confirms.">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f4f8; color: #1a1a2e; }
+    .hero { background: linear-gradient(135deg, #0077b6, #00b4d8); color: white; padding: 60px 24px; text-align: center; }
+    .hero h1 { font-size: 42px; margin-bottom: 12px; letter-spacing: -1px; }
+    .hero p { font-size: 18px; opacity: 0.9; max-width: 600px; margin: 0 auto; line-height: 1.5; }
+    .container { max-width: 800px; margin: 0 auto; padding: 0 24px; }
+    .lang-toggle { text-align: center; padding: 20px; }
+    .lang-toggle button { background: none; border: 2px solid #0077b6; color: #0077b6; padding: 8px 20px; border-radius: 20px; font-size: 15px; cursor: pointer; margin: 0 6px; font-weight: 600; }
+    .lang-toggle button.active { background: #0077b6; color: white; }
+    section { padding: 40px 0; }
+    h2 { font-size: 26px; color: #0077b6; margin-bottom: 20px; text-align: center; }
+    .steps { display: grid; gap: 20px; }
+    .step { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+    .step-num { display: inline-block; width: 32px; height: 32px; background: #0077b6; color: white; border-radius: 50%; text-align: center; line-height: 32px; font-weight: 700; font-size: 14px; margin-bottom: 10px; }
+    .step h3 { font-size: 18px; margin-bottom: 8px; }
+    .step p { color: #555; line-height: 1.6; font-size: 15px; }
+    .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+    .feature { background: white; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+    .feature .icon { font-size: 32px; margin-bottom: 8px; }
+    .feature h3 { font-size: 16px; margin-bottom: 6px; }
+    .feature p { color: #666; font-size: 14px; }
+    .cta { text-align: center; padding: 40px 24px; }
+    .cta a { display: inline-block; background: #25D366; color: white; padding: 16px 40px; border-radius: 30px; font-size: 18px; font-weight: 600; text-decoration: none; }
+    .cta a:hover { background: #1da851; }
+    footer { text-align: center; padding: 24px; color: #999; font-size: 13px; border-top: 1px solid #eee; }
+    [dir="rtl"] { text-align: right; }
+    [dir="rtl"] .hero, [dir="rtl"] h2, [dir="rtl"] .cta, [dir="rtl"] .feature, [dir="rtl"] footer, [dir="rtl"] .lang-toggle { text-align: center; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+<div class="lang-toggle">
+  <button id="btn-en" class="active" onclick="showLang('en')">English</button>
+  <button id="btn-ar" onclick="showLang('ar')">العربية</button>
+</div>
+
+<!-- ENGLISH -->
+<div id="lang-en">
+  <div class="hero">
+    <h1>WataSeat</h1>
+    <p>Book boat trips via WhatsApp. Fishing, diving & cruising across the UAE. Your card is only charged when the trip confirms.</p>
+  </div>
+
+  <div class="container">
+    <section>
+      <h2>How It Works for Guests</h2>
+      <div class="steps">
+        <div class="step">
+          <span class="step-num">1</span>
+          <h3>Get the booking link</h3>
+          <p>Your captain shares a trip link in the WhatsApp group. Tap it to see trip details, date, time, and price.</p>
+        </div>
+        <div class="step">
+          <span class="step-num">2</span>
+          <h3>Pick your seats & pay</h3>
+          <p>Choose 1-4 seats and pay securely with Apple Pay, Google Pay, or card. Your card gets a hold — not a charge.</p>
+        </div>
+        <div class="step">
+          <span class="step-num">3</span>
+          <h3>Trip confirms automatically</h3>
+          <p>Once enough people book (minimum threshold), the trip is confirmed and your card is charged. If not enough people book, the hold is released — you pay nothing.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Captain Guide</h2>
+      <div class="steps">
+        <div class="step">
+          <span class="step-num">1</span>
+          <h3>Message the bot on WhatsApp</h3>
+          <p>Send any message to the WataSeat number to start onboarding. Enter your name, boat name, and license number.</p>
+        </div>
+        <div class="step">
+          <span class="step-num">2</span>
+          <h3>Connect your Stripe account</h3>
+          <p>Type <strong>/connect</strong> to set up your payment account. Complete Stripe's verification (ID + bank details). Payments go directly to your account.</p>
+        </div>
+        <div class="step">
+          <span class="step-num">3</span>
+          <h3>Create a trip</h3>
+          <p>Type <strong>/trip</strong> to start. Pick trip type, date, time, meeting point, seats, minimum threshold, and price. Upload a vessel photo to attract guests.</p>
+        </div>
+        <div class="step">
+          <span class="step-num">4</span>
+          <h3>Share with your group</h3>
+          <p>The bot gives you a booking message with a link. Forward it to your WhatsApp group. Guests tap the link to book and pay.</p>
+        </div>
+        <div class="step">
+          <span class="step-num">5</span>
+          <h3>Track & manage</h3>
+          <p><strong>/status [ID]</strong> — check bookings<br><strong>/trips</strong> — view your trips<br><strong>/repeat</strong> — repeat last trip<br><strong>/edit [ID]</strong> — edit a trip<br><strong>/cancel [ID]</strong> — cancel a trip<br><strong>/earnings</strong> — view your earnings<br><strong>/updatephoto</strong> — update vessel photo</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Why WataSeat?</h2>
+      <div class="features">
+        <div class="feature">
+          <div class="icon">💬</div>
+          <h3>WhatsApp Native</h3>
+          <p>No app to download. Everything happens in WhatsApp — the app your guests already use.</p>
+        </div>
+        <div class="feature">
+          <div class="icon">🔒</div>
+          <h3>Safe Payments</h3>
+          <p>Card holds only. Guests are never charged unless the trip reaches minimum bookings.</p>
+        </div>
+        <div class="feature">
+          <div class="icon">💰</div>
+          <h3>Direct Payouts</h3>
+          <p>90% goes to the captain. 10% platform fee. Automatic via Stripe Connect.</p>
+        </div>
+        <div class="feature">
+          <div class="icon">🚢</div>
+          <h3>UAE Focused</h3>
+          <p>Built for fishing, diving, and cruising trips across all 7 emirates. AED pricing.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="cta">
+    <a href="https://wa.me/971XXXXXXXXX">Message us on WhatsApp</a>
+  </div>
+</div>
+
+<!-- ARABIC -->
+<div id="lang-ar" class="hidden" dir="rtl">
+  <div class="hero">
+    <h1>واتاسيت</h1>
+    <p>احجز رحلات بحرية عبر واتساب. صيد، غوص ورحلات بحرية في الإمارات. لن يتم خصم أي مبلغ إلا عند تأكيد الرحلة.</p>
+  </div>
+
+  <div class="container">
+    <section>
+      <h2>كيف تعمل للضيوف</h2>
+      <div class="steps">
+        <div class="step">
+          <span class="step-num">1</span>
+          <h3>احصل على رابط الحجز</h3>
+          <p>يشارك القبطان رابط الرحلة في مجموعة الواتساب. اضغط عليه لمشاهدة تفاصيل الرحلة والتاريخ والوقت والسعر.</p>
+        </div>
+        <div class="step">
+          <span class="step-num">2</span>
+          <h3>اختر مقاعدك وادفع</h3>
+          <p>اختر من 1-4 مقاعد وادفع بأمان عبر Apple Pay أو Google Pay أو البطاقة. يتم حجز مبلغ على بطاقتك فقط — وليس خصم.</p>
+        </div>
+        <div class="step">
+          <span class="step-num">3</span>
+          <h3>الرحلة تتأكد تلقائياً</h3>
+          <p>عندما يحجز عدد كافٍ من الأشخاص (الحد الأدنى)، تتأكد الرحلة ويتم الخصم من بطاقتك. إذا لم يحجز عدد كافٍ، يُلغى الحجز — ولا تدفع شيئاً.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>دليل القبطان</h2>
+      <div class="steps">
+        <div class="step">
+          <span class="step-num">1</span>
+          <h3>أرسل رسالة للبوت على واتساب</h3>
+          <p>أرسل أي رسالة لرقم واتاسيت لبدء التسجيل. أدخل اسمك واسم القارب ورقم الرخصة.</p>
+        </div>
+        <div class="step">
+          <span class="step-num">2</span>
+          <h3>اربط حساب Stripe الخاص بك</h3>
+          <p>اكتب <strong>/connect</strong> لإعداد حساب الدفع. أكمل التحقق من Stripe (هوية + تفاصيل بنكية). المدفوعات تذهب مباشرة لحسابك.</p>
+        </div>
+        <div class="step">
+          <span class="step-num">3</span>
+          <h3>أنشئ رحلة</h3>
+          <p>اكتب <strong>/trip</strong> للبدء. اختر نوع الرحلة والتاريخ والوقت ونقطة التجمع والمقاعد والحد الأدنى والسعر. ارفع صورة للقارب لجذب الضيوف.</p>
+        </div>
+        <div class="step">
+          <span class="step-num">4</span>
+          <h3>شارك مع مجموعتك</h3>
+          <p>البوت يعطيك رسالة حجز مع رابط. أعد توجيهها لمجموعة الواتساب. الضيوف يضغطون على الرابط للحجز والدفع.</p>
+        </div>
+        <div class="step">
+          <span class="step-num">5</span>
+          <h3>تتبع وأدر</h3>
+          <p><strong>/status [ID]</strong> — تحقق من الحجوزات<br><strong>/trips</strong> — عرض رحلاتك<br><strong>/repeat</strong> — كرر آخر رحلة<br><strong>/edit [ID]</strong> — تعديل رحلة<br><strong>/cancel [ID]</strong> — إلغاء رحلة<br><strong>/earnings</strong> — عرض أرباحك<br><strong>/updatephoto</strong> — تحديث صورة القارب</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>لماذا واتاسيت؟</h2>
+      <div class="features">
+        <div class="feature">
+          <div class="icon">💬</div>
+          <h3>عبر واتساب</h3>
+          <p>لا حاجة لتحميل تطبيق. كل شيء يتم عبر واتساب — التطبيق الذي يستخدمه ضيوفك بالفعل.</p>
+        </div>
+        <div class="feature">
+          <div class="icon">🔒</div>
+          <h3>دفع آمن</h3>
+          <p>حجز مبلغ فقط. لن يتم الخصم من الضيوف إلا عند تأكيد الرحلة بالوصول للحد الأدنى.</p>
+        </div>
+        <div class="feature">
+          <div class="icon">💰</div>
+          <h3>دفعات مباشرة</h3>
+          <p>90% للقبطان. 10% رسوم المنصة. تلقائي عبر Stripe Connect.</p>
+        </div>
+        <div class="feature">
+          <div class="icon">🚢</div>
+          <h3>للإمارات</h3>
+          <p>مصمم لرحلات الصيد والغوص والرحلات البحرية في جميع الإمارات السبع. أسعار بالدرهم.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="cta">
+    <a href="https://wa.me/971XXXXXXXXX">راسلنا على واتساب</a>
+  </div>
+</div>
+
+<footer>
+  WataSeat &copy; 2026. Built in the UAE.
+</footer>
+
+<script>
+function showLang(lang) {
+  document.getElementById('lang-en').classList.toggle('hidden', lang !== 'en');
+  document.getElementById('lang-ar').classList.toggle('hidden', lang !== 'ar');
+  document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+  document.getElementById('btn-ar').classList.toggle('active', lang === 'ar');
+}
+</script>
+</body>
+</html>

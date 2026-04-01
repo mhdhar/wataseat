@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/index.ts",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "public/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    { "src": "/", "dest": "/public/index.html" },
+    { "src": "/webhooks/(.*)", "dest": "/api/index.ts" },
+    { "src": "/book/(.*)", "dest": "/api/index.ts" },
+    { "src": "/api/(.*)", "dest": "/api/index.ts" },
+    { "src": "/health", "dest": "/api/index.ts" },
+    { "src": "/booking/(.*)", "dest": "/api/index.ts" },
+    { "src": "/connect/(.*)", "dest": "/api/index.ts" }
+  ],
+  "crons": [
+    { "path": "/api/cron/threshold", "schedule": "0 * * * *" },
+    { "path": "/api/cron/reauth", "schedule": "0 2 * * *" },
+    { "path": "/api/cron/summary", "schedule": "0 4 * * *" }
+  ]
+}
