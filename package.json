@@ -6,7 +6,13 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "test:e2e": "tsx scripts/test-e2e.ts",
+    "test": "WATASEAT_TEST_MODE=true tsx scripts/test-suite.ts",
+    "test:live": "tsx scripts/test-suite.ts",
+    "test:stress": "WATASEAT_TEST_MODE=true tsx scripts/test-suite.ts --group stress",
+    "test:logic": "WATASEAT_TEST_MODE=true tsx scripts/test-suite.ts --group logic",
+    "test:infra": "WATASEAT_TEST_MODE=true tsx scripts/test-suite.ts --group infra"
   },
   "keywords": [
     "whatsapp",
