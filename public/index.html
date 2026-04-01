@@ -16,514 +16,271 @@
   <style>
     :root {
       --bg: #0a1628;
-      --bg2: #0f1f38;
+      --bg2: #0d1a30;
       --bg3: #162a4a;
       --text: #e4eaf5;
       --text-dim: #8a9bb8;
       --accent: #00d4aa;
-      --accent-glow: rgba(0,212,170,0.15);
-      --gold: #ffb347;
+      --accent-glow: rgba(0,212,170,0.12);
       --wa-green: #25D366;
       --wa-dark: #1a9e4a;
       --teal: #0891b2;
       --card: rgba(255,255,255,0.04);
-      --card-border: rgba(255,255,255,0.08);
+      --card-border: rgba(255,255,255,0.07);
       --radius: 16px;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
-    body {
-      font-family: 'DM Sans', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      overflow-x: hidden;
-      -webkit-font-smoothing: antialiased;
-    }
-    [dir="rtl"] body, [dir="rtl"] { font-family: 'Cairo', sans-serif; }
-    h1,h2,h3,h4 { font-family: 'Outfit', sans-serif; }
-    [dir="rtl"] h1,[dir="rtl"] h2,[dir="rtl"] h3,[dir="rtl"] h4 { font-family: 'Cairo', sans-serif; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html{scroll-behavior:smooth}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;-webkit-font-smoothing:antialiased}
+    [dir="rtl"] body,[dir="rtl"]{font-family:'Cairo',sans-serif}
+    h1,h2,h3,h4{font-family:'Outfit',sans-serif}
+    [dir="rtl"] h1,[dir="rtl"] h2,[dir="rtl"] h3,[dir="rtl"] h4{font-family:'Cairo',sans-serif}
+    .cmd-ltr{direction:ltr;display:inline-block;unicode-bidi:embed}
 
-    /* ── Grain overlay ─────────────────────────────── */
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
-      pointer-events: none;
-      z-index: 9999;
+    /* ── Ocean background ─────────────────────────── */
+    body::after{
+      content:'';position:fixed;inset:0;pointer-events:none;z-index:-1;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% 80%, rgba(8,145,178,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 20%, rgba(0,212,170,0.06) 0%, transparent 50%),
+        radial-gradient(ellipse 90% 60% at 50% 100%, rgba(8,145,178,0.1) 0%, transparent 50%);
     }
 
-    /* ── Floating WhatsApp button ──────────────────── */
-    .wa-float {
-      position: fixed;
-      bottom: 28px;
-      right: 28px;
-      z-index: 1000;
-      width: 64px;
-      height: 64px;
-      background: var(--wa-green);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 4px 24px rgba(37,211,102,0.4);
-      text-decoration: none;
-      transition: transform 0.2s, box-shadow 0.2s;
-      animation: float-pulse 3s ease-in-out infinite;
+    /* ── Wave SVG background ──────────────────────── */
+    .wave-bg{
+      position:absolute;bottom:0;left:0;right:0;pointer-events:none;opacity:0.06;
     }
-    .wa-float:hover { transform: scale(1.1); box-shadow: 0 6px 32px rgba(37,211,102,0.6); }
-    .wa-float svg { width: 32px; height: 32px; fill: white; }
-    @keyframes float-pulse {
-      0%,100% { transform: translateY(0); }
-      50% { transform: translateY(-6px); }
+    .wave-bg svg{width:100%;height:auto;display:block}
+
+    /* ── Floating WhatsApp ─────────────────────────── */
+    .wa-float{
+      position:fixed;bottom:20px;right:20px;z-index:1000;width:60px;height:60px;
+      background:var(--wa-green);border-radius:50%;display:flex;align-items:center;justify-content:center;
+      box-shadow:0 4px 24px rgba(37,211,102,0.4);text-decoration:none;
+      transition:transform .2s,box-shadow .2s;animation:wa-bob 3s ease-in-out infinite;
     }
+    .wa-float:hover{transform:scale(1.1);box-shadow:0 6px 32px rgba(37,211,102,0.6)}
+    .wa-float svg{width:30px;height:30px;fill:#fff}
+    @keyframes wa-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
 
     /* ── Nav ───────────────────────────────────────── */
-    nav {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 100;
-      padding: 16px 24px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: rgba(10,22,40,0.85);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--card-border);
+    nav{
+      position:fixed;top:0;left:0;right:0;z-index:100;padding:14px 20px;
+      display:flex;justify-content:space-between;align-items:center;
+      background:rgba(10,22,40,0.88);backdrop-filter:blur(16px);
+      border-bottom:1px solid var(--card-border);
     }
-    .logo {
-      font-family: 'Outfit', sans-serif;
-      font-weight: 800;
-      font-size: 22px;
-      color: var(--accent);
-      letter-spacing: -0.5px;
+    .logo{font-family:'Outfit',sans-serif;font-weight:800;font-size:20px;color:var(--accent);letter-spacing:-.5px}
+    .logo span{color:var(--text)}
+    .nav-right{display:flex;align-items:center;gap:8px}
+    .lang-btn{
+      background:var(--card);border:1px solid var(--card-border);color:var(--text-dim);
+      padding:6px 12px;border-radius:20px;font-size:12px;cursor:pointer;transition:all .2s;font-family:inherit;
     }
-    .logo span { color: var(--text); }
-    .nav-right { display: flex; align-items: center; gap: 12px; }
-    .lang-btn {
-      background: var(--card);
-      border: 1px solid var(--card-border);
-      color: var(--text-dim);
-      padding: 6px 14px;
-      border-radius: 20px;
-      font-size: 13px;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-family: inherit;
+    .lang-btn.active{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:600}
+    .nav-wa{
+      background:var(--wa-green);color:#fff;padding:8px 16px;border-radius:20px;
+      text-decoration:none;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;transition:background .2s;
     }
-    .lang-btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
-    .nav-wa {
-      background: var(--wa-green);
-      color: white;
-      padding: 8px 18px;
-      border-radius: 20px;
-      text-decoration: none;
-      font-size: 14px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      transition: background 0.2s;
-    }
-    .nav-wa:hover { background: var(--wa-dark); }
-    .nav-wa svg { width: 16px; height: 16px; fill: white; }
+    .nav-wa:hover{background:var(--wa-dark)}
+    .nav-wa svg{width:15px;height:15px;fill:#fff}
 
     /* ── Hero ──────────────────────────────────────── */
-    .hero {
-      padding: 140px 24px 80px;
-      text-align: center;
-      position: relative;
-      overflow: hidden;
+    .hero{padding:120px 20px 60px;text-align:center;position:relative;overflow:hidden}
+    .hero::before{
+      content:'';position:absolute;top:-40%;left:50%;transform:translateX(-50%);
+      width:700px;height:700px;
+      background:radial-gradient(circle,rgba(0,212,170,0.07) 0%,transparent 65%);pointer-events:none;
     }
-    .hero::before {
-      content: '';
-      position: absolute;
-      top: -50%;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 800px;
-      height: 800px;
-      background: radial-gradient(circle, rgba(0,212,170,0.08) 0%, transparent 70%);
-      pointer-events: none;
+    .hero-badge{
+      display:inline-flex;align-items:center;gap:8px;
+      background:var(--accent-glow);border:1px solid rgba(0,212,170,0.2);
+      padding:7px 16px;border-radius:30px;font-size:13px;color:var(--accent);margin-bottom:20px;
     }
-    .hero-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: var(--accent-glow);
-      border: 1px solid rgba(0,212,170,0.2);
-      padding: 8px 18px;
-      border-radius: 30px;
-      font-size: 14px;
-      color: var(--accent);
-      margin-bottom: 24px;
+    .hero h1{font-size:clamp(32px,7vw,58px);font-weight:800;line-height:1.1;margin-bottom:14px;letter-spacing:-1.5px}
+    .hero h1 .hl{color:var(--accent)}
+    .hero>p{font-size:16px;color:var(--text-dim);max-width:480px;margin:0 auto 28px;line-height:1.6}
+    .hero-ctas{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+    .btn-wa{
+      background:var(--wa-green);color:#fff;padding:14px 32px;border-radius:28px;font-size:16px;font-weight:600;
+      text-decoration:none;display:inline-flex;align-items:center;gap:10px;
+      transition:all .2s;box-shadow:0 4px 20px rgba(37,211,102,0.3);
     }
-    .hero h1 {
-      font-size: clamp(36px, 8vw, 64px);
-      font-weight: 800;
-      line-height: 1.1;
-      margin-bottom: 16px;
-      letter-spacing: -2px;
+    .btn-wa:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(37,211,102,0.45)}
+    .btn-wa svg{width:20px;height:20px;fill:#fff}
+    .btn-ghost{
+      background:var(--card);border:1px solid var(--card-border);color:var(--text);
+      padding:14px 32px;border-radius:28px;font-size:16px;font-weight:500;text-decoration:none;transition:all .2s;
     }
-    .hero h1 .highlight { color: var(--accent); }
-    .hero p {
-      font-size: 18px;
-      color: var(--text-dim);
-      max-width: 540px;
-      margin: 0 auto 36px;
-      line-height: 1.6;
-    }
-    .hero-ctas { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
-    .btn-primary {
-      background: var(--wa-green);
-      color: white;
-      padding: 16px 36px;
-      border-radius: 30px;
-      font-size: 17px;
-      font-weight: 600;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      transition: all 0.2s;
-      box-shadow: 0 4px 20px rgba(37,211,102,0.3);
-    }
-    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(37,211,102,0.4); }
-    .btn-primary svg { width: 20px; height: 20px; fill: white; }
-    .btn-secondary {
-      background: var(--card);
-      border: 1px solid var(--card-border);
-      color: var(--text);
-      padding: 16px 36px;
-      border-radius: 30px;
-      font-size: 17px;
-      font-weight: 500;
-      text-decoration: none;
-      transition: all 0.2s;
-    }
-    .btn-secondary:hover { background: var(--bg3); border-color: var(--accent); }
+    .btn-ghost:hover{border-color:var(--accent);background:var(--accent-glow)}
 
-    /* ── Wave divider ─────────────────────────────── */
-    .wave {
-      width: 100%;
-      overflow: hidden;
-      line-height: 0;
-      margin-top: -1px;
+    /* ── Activities ────────────────────────────────── */
+    .activities{padding:48px 20px;background:var(--bg2)}
+    .activities-grid{max-width:800px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+    .act-card{
+      background:var(--bg3);border:1px solid var(--card-border);border-radius:var(--radius);
+      padding:28px 16px;text-align:center;transition:all .3s;position:relative;overflow:hidden;
     }
-    .wave svg { width: 100%; height: 60px; }
+    .act-card:hover{border-color:var(--accent);transform:translateY(-3px)}
+    .act-icon{font-size:36px;margin-bottom:10px;display:block;color:var(--accent)}
+    .act-card h3{font-size:16px;margin-bottom:4px;font-weight:700}
+    .act-card p{color:var(--text-dim);font-size:13px;line-height:1.4}
 
-    /* ── Activities strip ─────────────────────────── */
-    .activities {
-      padding: 60px 24px;
-      background: var(--bg2);
-    }
-    .activities-grid {
-      max-width: 900px;
-      margin: 0 auto;
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 20px;
-    }
-    .activity-card {
-      background: var(--bg3);
-      border: 1px solid var(--card-border);
-      border-radius: var(--radius);
-      padding: 32px 20px;
-      text-align: center;
-      transition: all 0.3s;
-      position: relative;
-      overflow: hidden;
-    }
-    .activity-card::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, rgba(0,212,170,0.05) 0%, transparent 60%);
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-    .activity-card:hover::before { opacity: 1; }
-    .activity-card:hover { border-color: var(--accent); transform: translateY(-4px); }
-    .activity-icon {
-      font-size: 40px;
-      margin-bottom: 14px;
-      display: block;
-      color: var(--accent);
-    }
-    .activity-card h3 { font-size: 18px; margin-bottom: 6px; font-weight: 700; }
-    .activity-card p { color: var(--text-dim); font-size: 14px; line-height: 1.5; }
+    /* ── Phone mockup ─────────────────────────────── */
+    .demo{padding:60px 20px;position:relative}
+    .demo-inner{max-width:960px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+    .demo-text h2{font-size:clamp(28px,5vw,36px);font-weight:800;letter-spacing:-1px;margin-bottom:14px;line-height:1.15}
+    .demo-text h2 .hl{color:var(--accent)}
+    .demo-text>p{color:var(--text-dim);font-size:15px;line-height:1.7;margin-bottom:20px}
 
-    /* ── Phone mockup section ─────────────────────── */
-    .demo {
-      padding: 80px 24px;
-      position: relative;
+    /* Modern phone */
+    .phone-wrap{display:flex;justify-content:center}
+    .phone{
+      width:min(320px, 85vw);
+      background:linear-gradient(145deg,#1e1e1e,#2a2a2a);
+      border-radius:40px;padding:14px;
+      box-shadow:0 30px 80px rgba(0,0,0,0.5),0 0 0 1px rgba(255,255,255,0.08),inset 0 1px 0 rgba(255,255,255,0.1);
+      position:relative;
     }
-    .demo-inner {
-      max-width: 1000px;
-      margin: 0 auto;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 60px;
-      align-items: center;
+    .phone::before{
+      content:'';position:absolute;top:10px;left:50%;transform:translateX(-50%);
+      width:80px;height:24px;background:#1a1a1a;border-radius:0 0 14px 14px;z-index:5;
     }
-    .demo-text h2 {
-      font-size: 36px;
-      font-weight: 800;
-      letter-spacing: -1px;
-      margin-bottom: 16px;
-      line-height: 1.15;
+    .phone-screen{background:#0b141a;border-radius:28px;overflow:hidden}
+    .ph-header{
+      background:linear-gradient(180deg,#1f2c34,#1a2630);
+      padding:36px 16px 12px;display:flex;align-items:center;gap:12px;
     }
-    .demo-text h2 .highlight { color: var(--accent); }
-    .demo-text p { color: var(--text-dim); font-size: 16px; line-height: 1.7; margin-bottom: 24px; }
+    .ph-avatar{
+      width:36px;height:36px;border-radius:50%;background:var(--accent);
+      display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:var(--bg);
+    }
+    .ph-name{font-size:15px;font-weight:600}
+    .ph-status{font-size:11px;color:var(--accent)}
+    .chat{padding:16px;min-height:380px;display:flex;flex-direction:column;gap:10px}
+    .msg{
+      max-width:82%;padding:10px 14px;border-radius:10px;font-size:13.5px;line-height:1.5;
+      opacity:0;animation:msg-pop .4s ease forwards;
+    }
+    .msg-out{background:#005c4b;align-self:flex-end;border-bottom-right-radius:3px}
+    .msg-in{background:#1f2c34;align-self:flex-start;border-bottom-left-radius:3px}
+    .msg-time{font-size:10px;color:rgba(255,255,255,0.35);float:right;margin-left:10px;margin-top:4px}
+    @keyframes msg-pop{from{opacity:0;transform:translateY(12px) scale(0.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+    .msg:nth-child(1){animation-delay:.3s}
+    .msg:nth-child(2){animation-delay:.9s}
+    .msg:nth-child(3){animation-delay:1.5s}
+    .msg:nth-child(4){animation-delay:2.1s}
+    .msg:nth-child(5){animation-delay:2.7s}
+    .msg:nth-child(6){animation-delay:3.3s}
+    .msg:nth-child(7){animation-delay:3.9s}
+    .msg .cmd{color:var(--accent);font-weight:600;direction:ltr;display:inline-block;unicode-bidi:embed}
+    .msg-check{font-size:11px;color:rgba(83,209,255,0.6);margin-left:4px}
 
-    /* Phone frame */
-    .phone {
-      width: 280px;
-      margin: 0 auto;
-      background: #1a1a1a;
-      border-radius: 32px;
-      padding: 12px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.5), inset 0 0 0 2px rgba(255,255,255,0.1);
+    /* ── Steps ─────────────────────────────────────── */
+    .steps-section{padding:64px 20px;background:var(--bg2);position:relative;overflow:hidden}
+    .section-hdr{text-align:center;margin-bottom:40px}
+    .section-hdr h2{font-size:clamp(26px,5vw,34px);font-weight:800;letter-spacing:-.8px;margin-bottom:10px}
+    .section-hdr p{color:var(--text-dim);font-size:15px}
+    .steps-grid{max-width:640px;margin:0 auto;display:flex;flex-direction:column;position:relative}
+    .steps-grid::before{
+      content:'';position:absolute;left:23px;top:24px;bottom:24px;width:2px;
+      background:linear-gradient(to bottom,var(--accent),var(--teal),transparent);
     }
-    .phone-screen {
-      background: #0b141a;
-      border-radius: 22px;
-      overflow: hidden;
+    [dir="rtl"] .steps-grid::before{left:auto;right:23px}
+    .step-item{display:flex;gap:18px;padding:20px 0;position:relative}
+    .step-dot{
+      width:46px;height:46px;min-width:46px;background:var(--bg);
+      border:2px solid var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;
+      font-family:'Outfit',sans-serif;font-weight:800;font-size:17px;color:var(--accent);z-index:1;
     }
-    .phone-header {
-      background: #1f2c34;
-      padding: 10px 14px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .phone-avatar {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      background: var(--accent);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      font-weight: 700;
-      color: var(--bg);
-    }
-    .phone-name { font-size: 14px; font-weight: 600; }
-    .phone-status { font-size: 11px; color: var(--text-dim); }
-    .chat {
-      padding: 14px;
-      min-height: 340px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .msg {
-      max-width: 85%;
-      padding: 8px 12px;
-      border-radius: 8px;
-      font-size: 13px;
-      line-height: 1.5;
-      opacity: 0;
-      animation: msg-in 0.4s ease forwards;
-    }
-    .msg-out {
-      background: #005c4b;
-      align-self: flex-end;
-      border-bottom-right-radius: 2px;
-    }
-    .msg-in {
-      background: #1f2c34;
-      align-self: flex-start;
-      border-bottom-left-radius: 2px;
-    }
-    .msg-time { font-size: 10px; color: rgba(255,255,255,0.4); float: right; margin-left: 8px; margin-top: 4px; }
-    @keyframes msg-in {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .msg:nth-child(1) { animation-delay: 0.3s; }
-    .msg:nth-child(2) { animation-delay: 0.8s; }
-    .msg:nth-child(3) { animation-delay: 1.4s; }
-    .msg:nth-child(4) { animation-delay: 2.0s; }
-    .msg:nth-child(5) { animation-delay: 2.6s; }
-    .msg:nth-child(6) { animation-delay: 3.2s; }
-    .msg .cmd { color: var(--accent); font-weight: 600; }
-
-    /* ── Steps section ────────────────────────────── */
-    .steps-section {
-      padding: 80px 24px;
-      background: var(--bg2);
-    }
-    .section-header {
-      text-align: center;
-      margin-bottom: 48px;
-    }
-    .section-header h2 {
-      font-size: 36px;
-      font-weight: 800;
-      letter-spacing: -1px;
-      margin-bottom: 12px;
-    }
-    .section-header p { color: var(--text-dim); font-size: 16px; }
-    .steps-grid {
-      max-width: 700px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 0;
-      position: relative;
-    }
-    .steps-grid::before {
-      content: '';
-      position: absolute;
-      left: 24px;
-      top: 24px;
-      bottom: 24px;
-      width: 2px;
-      background: linear-gradient(to bottom, var(--accent), var(--teal), transparent);
-    }
-    [dir="rtl"] .steps-grid::before { left: auto; right: 24px; }
-    .step-item {
-      display: flex;
-      gap: 20px;
-      padding: 24px 0;
-      position: relative;
-    }
-    .step-dot {
-      width: 48px;
-      height: 48px;
-      min-width: 48px;
-      background: var(--bg);
-      border: 2px solid var(--accent);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: 'Outfit', sans-serif;
-      font-weight: 800;
-      font-size: 18px;
-      color: var(--accent);
-      z-index: 1;
-    }
-    .step-content h3 { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
-    .step-content p { color: var(--text-dim); font-size: 15px; line-height: 1.6; }
-    .step-content .cmd-tag {
-      display: inline-block;
-      background: rgba(0,212,170,0.1);
-      color: var(--accent);
-      padding: 2px 10px;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 600;
-      font-family: monospace;
-      margin-top: 4px;
+    .step-content h3{font-size:17px;font-weight:700;margin-bottom:5px}
+    .step-content p{color:var(--text-dim);font-size:14px;line-height:1.55}
+    .cmd-tag{
+      display:inline-block;background:rgba(0,212,170,0.1);color:var(--accent);
+      padding:2px 10px;border-radius:6px;font-size:13px;font-weight:600;
+      font-family:'DM Sans',monospace;margin-top:3px;direction:ltr;unicode-bidi:embed;
     }
 
     /* ── Features ──────────────────────────────────── */
-    .features-section { padding: 80px 24px; }
-    .features-grid {
-      max-width: 900px;
-      margin: 0 auto;
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 20px;
+    .features-section{padding:64px 20px}
+    .features-grid{max-width:800px;margin:0 auto;display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+    .feat-card{
+      background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);
+      padding:24px;transition:all .3s;
     }
-    .feat-card {
-      background: var(--card);
-      border: 1px solid var(--card-border);
-      border-radius: var(--radius);
-      padding: 28px;
-      transition: all 0.3s;
+    .feat-card:hover{border-color:rgba(0,212,170,0.25);background:var(--accent-glow)}
+    .feat-icon{
+      width:44px;height:44px;border-radius:12px;background:var(--accent-glow);
+      display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:20px;color:var(--accent);
     }
-    .feat-card:hover { border-color: rgba(0,212,170,0.3); background: var(--accent-glow); }
-    .feat-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 12px;
-      background: var(--accent-glow);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 16px;
-      font-size: 22px;
-      color: var(--accent);
-    }
-    .feat-card h3 { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
-    .feat-card p { color: var(--text-dim); font-size: 14px; line-height: 1.6; }
+    .feat-card h3{font-size:16px;font-weight:700;margin-bottom:5px}
+    .feat-card p{color:var(--text-dim);font-size:13px;line-height:1.55}
 
-    /* ── CTA section ──────────────────────────────── */
-    .cta-section {
-      padding: 80px 24px;
-      text-align: center;
-      background: var(--bg2);
-      position: relative;
+    /* ── CTA ───────────────────────────────────────── */
+    .cta-section{padding:64px 20px;text-align:center;background:var(--bg2);position:relative;overflow:hidden}
+    .cta-section::before{
+      content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);
+      width:500px;height:350px;background:radial-gradient(circle,rgba(37,211,102,0.06) 0%,transparent 65%);pointer-events:none;
     }
-    .cta-section::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 600px;
-      height: 400px;
-      background: radial-gradient(circle, rgba(37,211,102,0.08) 0%, transparent 70%);
-      pointer-events: none;
+    .cta-section h2{font-size:clamp(26px,5vw,34px);font-weight:800;margin-bottom:12px;letter-spacing:-.8px}
+    .cta-section>p{color:var(--text-dim);font-size:15px;margin-bottom:28px}
+    .cta-big{
+      display:inline-flex;align-items:center;gap:12px;background:var(--wa-green);color:#fff;
+      padding:18px 44px;border-radius:30px;font-size:18px;font-weight:700;text-decoration:none;
+      box-shadow:0 8px 32px rgba(37,211,102,0.35);transition:all .2s;
     }
-    .cta-section h2 { font-size: 36px; font-weight: 800; margin-bottom: 16px; letter-spacing: -1px; }
-    .cta-section p { color: var(--text-dim); font-size: 16px; margin-bottom: 32px; }
-    .cta-big {
-      display: inline-flex;
-      align-items: center;
-      gap: 12px;
-      background: var(--wa-green);
-      color: white;
-      padding: 20px 48px;
-      border-radius: 32px;
-      font-size: 20px;
-      font-weight: 700;
-      text-decoration: none;
-      box-shadow: 0 8px 32px rgba(37,211,102,0.35);
-      transition: all 0.2s;
-    }
-    .cta-big:hover { transform: translateY(-3px); box-shadow: 0 12px 40px rgba(37,211,102,0.5); }
-    .cta-big svg { width: 24px; height: 24px; fill: white; }
+    .cta-big:hover{transform:translateY(-3px);box-shadow:0 12px 40px rgba(37,211,102,0.5)}
+    .cta-big svg{width:22px;height:22px;fill:#fff}
 
     /* ── Footer ────────────────────────────────────── */
-    footer {
-      padding: 40px 24px;
-      text-align: center;
-      border-top: 1px solid var(--card-border);
-    }
-    footer p { color: var(--text-dim); font-size: 13px; margin-bottom: 8px; }
-    footer a { color: var(--accent); text-decoration: none; }
+    footer{padding:32px 20px;text-align:center;border-top:1px solid var(--card-border)}
+    footer p{color:var(--text-dim);font-size:12px;margin-bottom:6px}
+    footer a{color:var(--accent);text-decoration:none}
 
     /* ── Scroll reveal ─────────────────────────────── */
-    .reveal {
-      opacity: 0;
-      transform: translateY(30px);
-      transition: opacity 0.6s ease, transform 0.6s ease;
-    }
-    .reveal.visible { opacity: 1; transform: translateY(0); }
+    .reveal{opacity:0;transform:translateY(24px);transition:opacity .6s ease,transform .6s ease}
+    .reveal.visible{opacity:1;transform:translateY(0)}
 
-    /* ── Responsive ────────────────────────────────── */
-    @media (max-width: 768px) {
-      .demo-inner { grid-template-columns: 1fr; text-align: center; }
-      .demo-text { order: 1; }
-      .features-grid { grid-template-columns: 1fr; }
-      .activities-grid { grid-template-columns: 1fr; }
-      .nav-wa span { display: none; }
-      .hero h1 { letter-spacing: -1px; }
+    /* ── MOBILE RESPONSIVE ─────────────────────────── */
+    @media(max-width:768px){
+      nav{padding:12px 16px}
+      .logo{font-size:18px}
+      .nav-wa span{display:none}
+      .nav-wa{padding:8px 12px}
+      .hero{padding:100px 16px 48px}
+      .hero>p{font-size:15px}
+      .hero-ctas{flex-direction:column;align-items:center}
+      .btn-wa,.btn-ghost{width:100%;max-width:320px;justify-content:center;padding:14px 24px;font-size:15px}
+      .activities{padding:36px 16px}
+      .activities-grid{grid-template-columns:1fr;gap:12px}
+      .act-card{padding:20px 16px;display:flex;align-items:center;gap:14px;text-align:left}
+      [dir="rtl"] .act-card{text-align:right}
+      .act-icon{font-size:28px;margin-bottom:0;min-width:36px}
+      .demo{padding:40px 16px}
+      .demo-inner{grid-template-columns:1fr;gap:32px;text-align:center}
+      .demo-text{order:-1}
+      .demo-text>p{font-size:14px}
+      .phone{width:min(300px,90vw);border-radius:36px;padding:12px}
+      .phone::before{width:70px;height:20px;border-radius:0 0 12px 12px}
+      .phone-screen{border-radius:26px}
+      .chat{min-height:340px;padding:14px 12px}
+      .steps-section{padding:48px 16px}
+      .features-grid{grid-template-columns:1fr}
+      .cta-section{padding:48px 16px}
+      .cta-big{padding:16px 36px;font-size:16px;width:100%;max-width:320px;justify-content:center}
     }
-    .hidden { display: none !important; }
+    @media(max-width:380px){
+      .hero h1{font-size:28px;letter-spacing:-.8px}
+      .phone{width:92vw}
+      .msg{font-size:12.5px;padding:8px 10px}
+    }
+    .hidden{display:none!important}
   </style>
 </head>
 <body>
 
 <!-- Floating WhatsApp -->
-<a href="https://wa.me/971526208920" class="wa-float" aria-label="Message us on WhatsApp">
+<a href="https://wa.me/971526208920" class="wa-float" aria-label="WhatsApp">
   <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
 </a>
 
@@ -532,7 +289,7 @@
   <div class="logo"><span>Wata</span>Seat</div>
   <div class="nav-right">
     <button class="lang-btn active" id="btn-en" onclick="showLang('en')">EN</button>
-    <button class="lang-btn" id="btn-ar" onclick="showLang('ar')">AR</button>
+    <button class="lang-btn" id="btn-ar" onclick="showLang('ar')">عربي</button>
     <a href="https://wa.me/971526208920" class="nav-wa">
       <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
       <span>Start Now</span>
@@ -543,71 +300,52 @@
 <!-- ═══════════ ENGLISH ═══════════ -->
 <div id="lang-en">
 
-  <!-- Hero -->
   <section class="hero">
-    <div class="hero-badge">
-      <i class="ph ph-anchor"></i> Built for UAE waters
-    </div>
-    <h1>Book boat trips<br><span class="highlight">via WhatsApp</span></h1>
+    <div class="hero-badge"><i class="ph ph-anchor"></i> Built for UAE waters</div>
+    <h1>Book boat trips<br><span class="hl">via WhatsApp</span></h1>
     <p>Fishing, diving & cruising across the Emirates. Captains create trips, guests book & pay — all through the chat app you already use.</p>
     <div class="hero-ctas">
-      <a href="https://wa.me/971526208920" class="btn-primary">
-        <svg viewBox="0 0 24 24" width="20" height="20"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      <a href="https://wa.me/971526208920" class="btn-wa">
+        <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
         Start on WhatsApp
       </a>
-      <a href="#how-it-works" class="btn-secondary">See how it works</a>
+      <a href="#how-en" class="btn-ghost">See how it works</a>
     </div>
   </section>
 
-  <!-- Activities -->
   <section class="activities reveal">
     <div class="activities-grid">
-      <div class="activity-card">
-        <i class="ph ph-fish activity-icon"></i>
-        <h3>Fishing</h3>
-        <p>Deep sea, reef & sport fishing trips with experienced captains</p>
-      </div>
-      <div class="activity-card">
-        <i class="ph ph-waves activity-icon"></i>
-        <h3>Diving</h3>
-        <p>Scuba & snorkeling adventures at the best UAE dive spots</p>
-      </div>
-      <div class="activity-card">
-        <i class="ph ph-sailboat activity-icon"></i>
-        <h3>Cruising</h3>
-        <p>Sunset cruises, island hops & coastal sightseeing</p>
-      </div>
+      <div class="act-card"><i class="ph ph-fish act-icon"></i><div><h3>Fishing</h3><p>Deep sea, reef & sport fishing with experienced captains</p></div></div>
+      <div class="act-card"><i class="ph ph-waves act-icon"></i><div><h3>Diving</h3><p>Scuba & snorkeling at the best UAE dive spots</p></div></div>
+      <div class="act-card"><i class="ph ph-sailboat act-icon"></i><div><h3>Cruising</h3><p>Sunset cruises, island hops & coastal tours</p></div></div>
     </div>
   </section>
 
-  <!-- WhatsApp Demo -->
-  <section class="demo reveal" id="how-it-works">
+  <section class="demo reveal" id="how-en">
     <div class="demo-inner">
       <div class="demo-text">
-        <h2>Everything happens<br>in <span class="highlight">WhatsApp</span></h2>
-        <p>No apps to download. No accounts to create. Captains manage trips and guests book seats — all through simple WhatsApp messages. The bot handles bookings, payments, confirmations, and payouts automatically.</p>
-        <a href="https://wa.me/971526208920" class="btn-primary" style="margin-top:8px">
+        <h2>Everything happens<br>in <span class="hl">WhatsApp</span></h2>
+        <p>No apps to download. No accounts to create. Captains manage trips and guests book seats — all through simple messages. Bookings, payments, confirmations & payouts happen automatically.</p>
+        <a href="https://wa.me/971526208920" class="btn-wa">
           <svg viewBox="0 0 24 24" width="20" height="20"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
           Try it now
         </a>
       </div>
-      <div>
+      <div class="phone-wrap">
         <div class="phone">
           <div class="phone-screen">
-            <div class="phone-header">
-              <div class="phone-avatar">W</div>
-              <div>
-                <div class="phone-name">WataSeat</div>
-                <div class="phone-status">online</div>
-              </div>
+            <div class="ph-header">
+              <div class="ph-avatar">W</div>
+              <div><div class="ph-name">WataSeat</div><div class="ph-status">online</div></div>
             </div>
             <div class="chat">
-              <div class="msg msg-out"><span class="cmd">/trip</span><span class="msg-time">9:01</span></div>
+              <div class="msg msg-out"><span class="cmd">/trip</span><span class="msg-check">&#10003;&#10003;</span><span class="msg-time">9:01</span></div>
               <div class="msg msg-in">Let's create a new trip! <i class="ph ph-sailboat"></i><br><br>What type of trip?<span class="msg-time">9:01</span></div>
-              <div class="msg msg-out">Fishing<span class="msg-time">9:01</span></div>
+              <div class="msg msg-out">Fishing<span class="msg-check">&#10003;&#10003;</span><span class="msg-time">9:01</span></div>
               <div class="msg msg-in">What date?<br>(e.g. 28/03 or 28 March)<span class="msg-time">9:01</span></div>
-              <div class="msg msg-out">5 April<span class="msg-time">9:02</span></div>
-              <div class="msg msg-in">What time?<br>(e.g. 6am, 14:30)<span class="msg-time">9:02</span></div>
+              <div class="msg msg-out">5 April<span class="msg-check">&#10003;&#10003;</span><span class="msg-time">9:02</span></div>
+              <div class="msg msg-in">Price per person in AED?<span class="msg-time">9:02</span></div>
+              <div class="msg msg-out">250<span class="msg-check">&#10003;&#10003;</span><span class="msg-time">9:02</span></div>
             </div>
           </div>
         </div>
@@ -615,84 +353,30 @@
     </div>
   </section>
 
-  <!-- Captain Steps -->
   <section class="steps-section reveal">
-    <div class="section-header">
-      <h2>Captain? Here's your guide</h2>
-      <p>Start earning in 5 minutes — no tech skills needed</p>
-    </div>
+    <div class="section-hdr"><h2>Captain? Here's your guide</h2><p>Start earning in 5 minutes — no tech skills needed</p></div>
     <div class="steps-grid">
-      <div class="step-item">
-        <div class="step-dot">1</div>
-        <div class="step-content">
-          <h3>Message the bot</h3>
-          <p>Send any message to the WataSeat WhatsApp number. Enter your name, boat name & license.</p>
-        </div>
-      </div>
-      <div class="step-item">
-        <div class="step-dot">2</div>
-        <div class="step-content">
-          <h3>Connect payments</h3>
-          <p>Type <span class="cmd-tag">/connect</span> to set up Stripe. Complete ID & bank verification — payments go directly to you.</p>
-        </div>
-      </div>
-      <div class="step-item">
-        <div class="step-dot">3</div>
-        <div class="step-content">
-          <h3>Create a trip</h3>
-          <p>Type <span class="cmd-tag">/trip</span> — pick type, date, time, seats, minimum & price. Upload a vessel photo.</p>
-        </div>
-      </div>
-      <div class="step-item">
-        <div class="step-dot">4</div>
-        <div class="step-content">
-          <h3>Share with your group</h3>
-          <p>Forward the booking link to your WhatsApp group. Guests tap to book & pay securely.</p>
-        </div>
-      </div>
-      <div class="step-item">
-        <div class="step-dot">5</div>
-        <div class="step-content">
-          <h3>Get paid automatically</h3>
-          <p>When the threshold is met, payments are captured. 90% to you, 10% platform fee. Done.</p>
-        </div>
-      </div>
+      <div class="step-item"><div class="step-dot">1</div><div class="step-content"><h3>Message the bot</h3><p>Send any message to WataSeat on WhatsApp. Enter your name, boat name & license.</p></div></div>
+      <div class="step-item"><div class="step-dot">2</div><div class="step-content"><h3>Connect payments</h3><p>Type <span class="cmd-tag">/connect</span> to set up Stripe. Complete ID & bank verification — payments go directly to you.</p></div></div>
+      <div class="step-item"><div class="step-dot">3</div><div class="step-content"><h3>Create a trip</h3><p>Type <span class="cmd-tag">/trip</span> — pick type, date, time, seats, minimum & price. Upload a vessel photo.</p></div></div>
+      <div class="step-item"><div class="step-dot">4</div><div class="step-content"><h3>Share with your group</h3><p>Forward the booking link to your WhatsApp group. Guests tap to book & pay securely.</p></div></div>
+      <div class="step-item"><div class="step-dot">5</div><div class="step-content"><h3>Get paid automatically</h3><p>When the threshold is met, payments are captured. 90% to you, 10% platform fee.</p></div></div>
     </div>
   </section>
 
-  <!-- Features -->
   <section class="features-section reveal">
-    <div class="section-header">
-      <h2>Why captains love WataSeat</h2>
-    </div>
+    <div class="section-hdr"><h2>Why captains love WataSeat</h2></div>
     <div class="features-grid">
-      <div class="feat-card">
-        <div class="feat-icon"><i class="ph ph-chat-circle-dots"></i></div>
-        <h3>WhatsApp native</h3>
-        <p>No app downloads. Everything runs in the chat your guests already use daily.</p>
-      </div>
-      <div class="feat-card">
-        <div class="feat-icon"><i class="ph ph-shield-check"></i></div>
-        <h3>Safe for everyone</h3>
-        <p>Card holds only — guests are never charged unless the trip hits minimum bookings.</p>
-      </div>
-      <div class="feat-card">
-        <div class="feat-icon"><i class="ph ph-currency-circle-dollar"></i></div>
-        <h3>Direct payouts</h3>
-        <p>90% goes straight to your bank via Stripe Connect. No invoicing, no delays.</p>
-      </div>
-      <div class="feat-card">
-        <div class="feat-icon"><i class="ph ph-map-pin"></i></div>
-        <h3>UAE focused</h3>
-        <p>Built for all 7 emirates. AED pricing. Apple Pay & Google Pay supported.</p>
-      </div>
+      <div class="feat-card"><div class="feat-icon"><i class="ph ph-chat-circle-dots"></i></div><h3>WhatsApp native</h3><p>No app downloads. Everything runs in the chat your guests already use daily.</p></div>
+      <div class="feat-card"><div class="feat-icon"><i class="ph ph-shield-check"></i></div><h3>Safe for everyone</h3><p>Card holds only — guests are never charged unless the trip hits minimum bookings.</p></div>
+      <div class="feat-card"><div class="feat-icon"><i class="ph ph-currency-circle-dollar"></i></div><h3>Direct payouts</h3><p>90% goes straight to your bank via Stripe Connect. No invoicing, no delays.</p></div>
+      <div class="feat-card"><div class="feat-icon"><i class="ph ph-map-pin"></i></div><h3>UAE focused</h3><p>Built for all 7 emirates. AED pricing. Apple Pay & Google Pay supported.</p></div>
     </div>
   </section>
 
-  <!-- CTA -->
   <section class="cta-section reveal">
     <h2>Ready to fill your boat?</h2>
-    <p>Message us on WhatsApp to get started in minutes — it's free to sign up.</p>
+    <p>Message us on WhatsApp to get started — it's free to sign up.</p>
     <a href="https://wa.me/971526208920" class="cta-big">
       <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
       Start on WhatsApp
@@ -704,67 +388,51 @@
 <div id="lang-ar" class="hidden" dir="rtl">
 
   <section class="hero">
-    <div class="hero-badge">
-      <i class="ph ph-anchor"></i> مصمم لمياه الإمارات
-    </div>
-    <h1>احجز رحلات بحرية<br><span class="highlight">عبر واتساب</span></h1>
+    <div class="hero-badge"><i class="ph ph-anchor"></i> مصمم لمياه الإمارات</div>
+    <h1>احجز رحلات بحرية<br><span class="hl">عبر واتساب</span></h1>
     <p>صيد، غوص ورحلات بحرية في جميع الإمارات. القبطان ينشئ الرحلة والضيوف يحجزون ويدفعون — كل شيء عبر واتساب.</p>
     <div class="hero-ctas">
-      <a href="https://wa.me/971526208920" class="btn-primary">
-        <svg viewBox="0 0 24 24" width="20" height="20"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      <a href="https://wa.me/971526208920" class="btn-wa">
+        <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
         ابدأ على واتساب
       </a>
-      <a href="#how-it-works-ar" class="btn-secondary">كيف تعمل؟</a>
+      <a href="#how-ar" class="btn-ghost">كيف تعمل؟</a>
     </div>
   </section>
 
   <section class="activities reveal">
     <div class="activities-grid">
-      <div class="activity-card">
-        <i class="ph ph-fish activity-icon"></i>
-        <h3>صيد</h3>
-        <p>رحلات صيد في أعماق البحر مع قباطنة ذوي خبرة</p>
-      </div>
-      <div class="activity-card">
-        <i class="ph ph-waves activity-icon"></i>
-        <h3>غوص</h3>
-        <p>مغامرات غوص وسنوركلنج في أفضل مواقع الإمارات</p>
-      </div>
-      <div class="activity-card">
-        <i class="ph ph-sailboat activity-icon"></i>
-        <h3>رحلات بحرية</h3>
-        <p>رحلات غروب وجولات ساحلية ومشاهدة معالم</p>
-      </div>
+      <div class="act-card"><i class="ph ph-fish act-icon"></i><div><h3>صيد</h3><p>رحلات صيد في أعماق البحر مع قباطنة ذوي خبرة</p></div></div>
+      <div class="act-card"><i class="ph ph-waves act-icon"></i><div><h3>غوص</h3><p>مغامرات غوص وسنوركلنج في أفضل مواقع الإمارات</p></div></div>
+      <div class="act-card"><i class="ph ph-sailboat act-icon"></i><div><h3>رحلات بحرية</h3><p>رحلات غروب وجولات ساحلية ومشاهدة معالم</p></div></div>
     </div>
   </section>
 
-  <section class="demo reveal" id="how-it-works-ar">
+  <section class="demo reveal" id="how-ar">
     <div class="demo-inner">
       <div class="demo-text">
-        <h2>كل شيء يتم<br>عبر <span class="highlight">واتساب</span></h2>
-        <p>لا حاجة لتحميل تطبيقات أو إنشاء حسابات. القبطان يدير الرحلات والضيوف يحجزون — كل شيء عبر رسائل واتساب بسيطة. البوت يتعامل مع الحجوزات والمدفوعات والتأكيدات تلقائياً.</p>
-        <a href="https://wa.me/971526208920" class="btn-primary" style="margin-top:8px">
+        <h2>كل شيء يتم<br>عبر <span class="hl">واتساب</span></h2>
+        <p>لا حاجة لتحميل تطبيقات أو إنشاء حسابات. القبطان يدير الرحلات والضيوف يحجزون — كل شيء عبر رسائل واتساب بسيطة. الحجوزات والمدفوعات والتأكيدات تتم تلقائياً.</p>
+        <a href="https://wa.me/971526208920" class="btn-wa">
           <svg viewBox="0 0 24 24" width="20" height="20"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
           جربها الآن
         </a>
       </div>
-      <div>
+      <div class="phone-wrap">
         <div class="phone">
           <div class="phone-screen">
-            <div class="phone-header">
-              <div class="phone-avatar">W</div>
-              <div>
-                <div class="phone-name">واتاسيت</div>
-                <div class="phone-status">متصل</div>
-              </div>
+            <div class="ph-header">
+              <div class="ph-avatar">W</div>
+              <div><div class="ph-name">واتاسيت</div><div class="ph-status">متصل</div></div>
             </div>
             <div class="chat">
-              <div class="msg msg-out"><span class="cmd">/trip</span><span class="msg-time">9:01</span></div>
+              <div class="msg msg-out"><span class="cmd">/trip</span><span class="msg-check">&#10003;&#10003;</span><span class="msg-time">9:01</span></div>
               <div class="msg msg-in">لنبدأ بإنشاء رحلة جديدة! <i class="ph ph-sailboat"></i><br><br>ما نوع الرحلة؟<span class="msg-time">9:01</span></div>
-              <div class="msg msg-out">صيد<span class="msg-time">9:01</span></div>
+              <div class="msg msg-out">صيد<span class="msg-check">&#10003;&#10003;</span><span class="msg-time">9:01</span></div>
               <div class="msg msg-in">ما التاريخ؟<br>(مثال: 28/03 أو 28 مارس)<span class="msg-time">9:01</span></div>
-              <div class="msg msg-out">5 أبريل<span class="msg-time">9:02</span></div>
-              <div class="msg msg-in">ما الوقت؟<br>(مثال: 6am أو 14:30)<span class="msg-time">9:02</span></div>
+              <div class="msg msg-out">5 أبريل<span class="msg-check">&#10003;&#10003;</span><span class="msg-time">9:02</span></div>
+              <div class="msg msg-in">السعر للشخص بالدرهم؟<span class="msg-time">9:02</span></div>
+              <div class="msg msg-out">250<span class="msg-check">&#10003;&#10003;</span><span class="msg-time">9:02</span></div>
             </div>
           </div>
         </div>
@@ -773,74 +441,23 @@
   </section>
 
   <section class="steps-section reveal">
-    <div class="section-header">
-      <h2>قبطان؟ إليك الدليل</h2>
-      <p>ابدأ بالكسب خلال 5 دقائق — لا حاجة لمهارات تقنية</p>
-    </div>
+    <div class="section-hdr"><h2>قبطان؟ إليك الدليل</h2><p>ابدأ بالكسب خلال 5 دقائق — لا حاجة لمهارات تقنية</p></div>
     <div class="steps-grid">
-      <div class="step-item">
-        <div class="step-dot">1</div>
-        <div class="step-content">
-          <h3>أرسل رسالة للبوت</h3>
-          <p>أرسل أي رسالة لرقم واتاسيت على واتساب. أدخل اسمك واسم القارب ورقم الرخصة.</p>
-        </div>
-      </div>
-      <div class="step-item">
-        <div class="step-dot">2</div>
-        <div class="step-content">
-          <h3>اربط المدفوعات</h3>
-          <p>اكتب <span class="cmd-tag">/connect</span> لإعداد Stripe. أكمل التحقق من الهوية والبنك — المدفوعات تذهب مباشرة لحسابك.</p>
-        </div>
-      </div>
-      <div class="step-item">
-        <div class="step-dot">3</div>
-        <div class="step-content">
-          <h3>أنشئ رحلة</h3>
-          <p>اكتب <span class="cmd-tag">/trip</span> — اختر النوع والتاريخ والوقت والمقاعد والحد الأدنى والسعر.</p>
-        </div>
-      </div>
-      <div class="step-item">
-        <div class="step-dot">4</div>
-        <div class="step-content">
-          <h3>شارك مع مجموعتك</h3>
-          <p>أعد توجيه رابط الحجز لمجموعة الواتساب. الضيوف يضغطون للحجز والدفع بأمان.</p>
-        </div>
-      </div>
-      <div class="step-item">
-        <div class="step-dot">5</div>
-        <div class="step-content">
-          <h3>استلم أموالك تلقائياً</h3>
-          <p>عند الوصول للحد الأدنى، يتم تحصيل المدفوعات. 90% لك و10% رسوم المنصة. انتهى!</p>
-        </div>
-      </div>
+      <div class="step-item"><div class="step-dot">1</div><div class="step-content"><h3>أرسل رسالة للبوت</h3><p>أرسل أي رسالة لرقم واتاسيت على واتساب. أدخل اسمك واسم القارب ورقم الرخصة.</p></div></div>
+      <div class="step-item"><div class="step-dot">2</div><div class="step-content"><h3>اربط المدفوعات</h3><p>اكتب <span class="cmd-tag">/connect</span> لإعداد Stripe. أكمل التحقق من الهوية والبنك — المدفوعات تذهب مباشرة لحسابك.</p></div></div>
+      <div class="step-item"><div class="step-dot">3</div><div class="step-content"><h3>أنشئ رحلة</h3><p>اكتب <span class="cmd-tag">/trip</span> — اختر النوع والتاريخ والوقت والمقاعد والحد الأدنى والسعر.</p></div></div>
+      <div class="step-item"><div class="step-dot">4</div><div class="step-content"><h3>شارك مع مجموعتك</h3><p>أعد توجيه رابط الحجز لمجموعة الواتساب. الضيوف يضغطون للحجز والدفع بأمان.</p></div></div>
+      <div class="step-item"><div class="step-dot">5</div><div class="step-content"><h3>استلم أموالك تلقائياً</h3><p>عند الوصول للحد الأدنى، يتم تحصيل المدفوعات. 90% لك و10% رسوم المنصة.</p></div></div>
     </div>
   </section>
 
   <section class="features-section reveal">
-    <div class="section-header">
-      <h2>لماذا يحب القباطنة واتاسيت</h2>
-    </div>
+    <div class="section-hdr"><h2>لماذا يحب القباطنة واتاسيت</h2></div>
     <div class="features-grid">
-      <div class="feat-card">
-        <div class="feat-icon"><i class="ph ph-chat-circle-dots"></i></div>
-        <h3>عبر واتساب</h3>
-        <p>لا حاجة لتحميل تطبيقات. كل شيء يتم عبر الدردشة التي يستخدمها ضيوفك يومياً.</p>
-      </div>
-      <div class="feat-card">
-        <div class="feat-icon"><i class="ph ph-shield-check"></i></div>
-        <h3>آمن للجميع</h3>
-        <p>حجز مبلغ فقط — لن يتم الخصم إلا عند وصول الرحلة للحد الأدنى من الحجوزات.</p>
-      </div>
-      <div class="feat-card">
-        <div class="feat-icon"><i class="ph ph-currency-circle-dollar"></i></div>
-        <h3>دفعات مباشرة</h3>
-        <p>90% تذهب مباشرة لحسابك البنكي عبر Stripe Connect. بدون فواتير أو تأخير.</p>
-      </div>
-      <div class="feat-card">
-        <div class="feat-icon"><i class="ph ph-map-pin"></i></div>
-        <h3>للإمارات</h3>
-        <p>مصمم لجميع الإمارات السبع. أسعار بالدرهم. يدعم Apple Pay و Google Pay.</p>
-      </div>
+      <div class="feat-card"><div class="feat-icon"><i class="ph ph-chat-circle-dots"></i></div><h3>عبر واتساب</h3><p>لا حاجة لتحميل تطبيقات. كل شيء يتم عبر الدردشة التي يستخدمها ضيوفك يومياً.</p></div>
+      <div class="feat-card"><div class="feat-icon"><i class="ph ph-shield-check"></i></div><h3>آمن للجميع</h3><p>حجز مبلغ فقط — لن يتم الخصم إلا عند وصول الرحلة للحد الأدنى من الحجوزات.</p></div>
+      <div class="feat-card"><div class="feat-icon"><i class="ph ph-currency-circle-dollar"></i></div><h3>دفعات مباشرة</h3><p>90% تذهب مباشرة لحسابك البنكي عبر Stripe Connect. بدون فواتير أو تأخير.</p></div>
+      <div class="feat-card"><div class="feat-icon"><i class="ph ph-map-pin"></i></div><h3>للإمارات</h3><p>مصمم لجميع الإمارات السبع. أسعار بالدرهم. يدعم Apple Pay و Google Pay.</p></div>
     </div>
   </section>
 
@@ -854,7 +471,6 @@
   </section>
 </div>
 
-<!-- Footer -->
 <footer>
   <p><strong style="color:var(--accent)">WataSeat</strong> &copy; 2026</p>
   <p><a href="mailto:info@wataseat.com">info@wataseat.com</a> &middot; <a href="https://wa.me/971526208920">+971 52 620 8920</a></p>
@@ -862,20 +478,15 @@
 </footer>
 
 <script>
-// Language toggle
-function showLang(lang) {
-  document.getElementById('lang-en').classList.toggle('hidden', lang !== 'en');
-  document.getElementById('lang-ar').classList.toggle('hidden', lang !== 'ar');
-  document.getElementById('btn-en').classList.toggle('active', lang === 'en');
-  document.getElementById('btn-ar').classList.toggle('active', lang === 'ar');
-  document.documentElement.lang = lang === 'ar' ? 'ar' : 'en';
+function showLang(l){
+  document.getElementById('lang-en').classList.toggle('hidden',l!=='en');
+  document.getElementById('lang-ar').classList.toggle('hidden',l!=='ar');
+  document.getElementById('btn-en').classList.toggle('active',l==='en');
+  document.getElementById('btn-ar').classList.toggle('active',l==='ar');
+  document.documentElement.lang=l==='ar'?'ar':'en';
 }
-
-// Scroll reveal
-const observer = new IntersectionObserver((entries) => {
-  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); } });
-}, { threshold: 0.1 });
-document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+const obs=new IntersectionObserver(e=>{e.forEach(x=>{if(x.isIntersecting)x.target.classList.add('visible')})},{threshold:.1});
+document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
 </script>
 <script defer src="/_vercel/insights/script.js"></script>
 </body>
