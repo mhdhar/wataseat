@@ -129,11 +129,49 @@ router.post('/:shortId/checkout', checkoutLimiter, async (req: Request, res: Res
       weekday: 'short', day: 'numeric', month: 'short',
     });
 
+    const sessionId = (req as any).wataSessionId ?? `web_${Date.now()}`;
+
+    // Dedup: look for an existing pending_payment booking for this session+trip
+    const { data: existingPending } = await supabase
+      .from('bookings')
+      .select('id, payment_link, stripe_payment_intent_id, created_at')
+      .eq('trip_id', trip.id)
+      .eq('guest_whatsapp_id', sessionId)
+      .eq('status', 'pending_payment')
+      .gt('created_at', new Date(Date.now() - 15 * 60 * 1000).toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingPending) {
+      if (existingPending.payment_link) {
+        // Cancel any other stale pending bookings for this session+trip (shouldn't exist but clean up)
+        await supabase
+          .from('bookings')
+          .update({ status: 'cancelled', cancelled_at: new Date().toISOString(), cancellation_reason: 'checkout_superseded' })
+          .eq('trip_id', trip.id)
+          .eq('guest_whatsapp_id', sessionId)
+          .eq('status', 'pending_payment')
+          .neq('id', existingPending.id);
+
+        logger.info({ bookingId: existingPending.id, sessionId }, 'Reusing existing pending booking for session');
+        res.redirect(303, existingPending.payment_link);
+        return;
+      } else {
+        // Edge case: crashed between reserve_seat and Stripe session creation — cancel and fall through
+        await supabase
+          .from('bookings')
+          .update({ status: 'cancelled', cancelled_at: new Date().toISOString(), cancellation_reason: 'checkout_abandoned' })
+          .eq('id', existingPending.id);
+        logger.warn({ bookingId: existingPending.id }, 'Cancelled stale pending booking with no payment_link — will create new');
+      }
+    }
+
     // Atomic seat reservation — locks trip row, checks availability, inserts booking
     const { data: bookingId, error: reserveErr } = await supabase.rpc('reserve_seat', {
       p_trip_id: trip.id,
       p_captain_id: trip.captain_id,
-      p_guest_whatsapp_id: (req as any).wataSessionId ?? `web_${Date.now()}`,
+      p_guest_whatsapp_id: sessionId,
       p_guest_name: null,
       p_num_seats: numSeats,
       p_price_per_seat: trip.price_per_person_aed,
@@ -202,6 +240,15 @@ router.post('/:shortId/checkout', checkoutLimiter, async (req: Request, res: Res
       .from('bookings')
       .update({ payment_link: session.url, stripe_payment_intent_id: session.payment_intent as string })
       .eq('id', booking.id);
+
+    // Cancel any other stale pending bookings for this session+trip (cleanup from prior aborted attempts)
+    await supabase
+      .from('bookings')
+      .update({ status: 'cancelled', cancelled_at: new Date().toISOString(), cancellation_reason: 'checkout_superseded' })
+      .eq('trip_id', trip.id)
+      .eq('guest_whatsapp_id', sessionId)
+      .eq('status', 'pending_payment')
+      .neq('id', booking.id);
 
     res.redirect(303, session.url!);
   } catch (err) {
