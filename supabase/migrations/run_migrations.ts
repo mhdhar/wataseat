@@ -498,6 +498,19 @@ const migrations: { name: string; sql: string }[] = [
       ALTER TABLE captains ADD COLUMN IF NOT EXISTS vessel_image_url TEXT;
     `,
   },
+  {
+    name: '016_admin_users',
+    sql: `
+      CREATE TABLE IF NOT EXISTS admin_users (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+    `,
+  },
 ];
 
 async function run() {
