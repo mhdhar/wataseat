@@ -7,6 +7,7 @@ import { CancelConfirmState, TripWizardState, EditWizardState } from '../types';
 import { handleTripWizardStep, parseDate, parseTime } from './tripWizardHandler';
 import { handleEditWizardStep } from './editWizardHandler';
 import { createTrip } from '../services/trips';
+import { trackEvent } from '../services/analytics';
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -97,6 +98,7 @@ async function startOnboarding(waId: string): Promise<void> {
     "Welcome to WataSeat! 🚢\n\nI'll help you set up your captain account in just a few steps.\n\nWhat's your name?"
   );
 
+  trackEvent('wa_onboarding_started', { step: 'name' }, waId);
   logger.info({ waId }, 'Captain onboarding started');
 }
 
@@ -189,6 +191,8 @@ async function processOnboardingStep(
         .from('captains')
         .update({ bank_name: bankName, onboarding_step: 'complete', is_active: true })
         .eq('id', captain.id);
+
+      trackEvent('wa_onboarding_completed', { captain_id: captain.id }, captain.whatsapp_id);
 
       await sendTextMessage(
         captain.whatsapp_id,

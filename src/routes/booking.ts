@@ -5,6 +5,7 @@ import { logger } from '../utils/logger';
 import { supabase } from '../db/supabase';
 import { calculateCommission } from '../config';
 import { getTripSeatOccupancy } from '../services/bookings';
+import { trackEvent, gtagScript } from '../services/analytics';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const router = Router();
@@ -173,6 +174,13 @@ router.post('/:shortId/checkout', checkoutLimiter, async (req: Request, res: Res
         logger.warn({ bookingId: existingPending.id }, 'Cancelled stale pending booking with no payment_link — will create new');
       }
     }
+
+    trackEvent('checkout_initiated', {
+      trip_id: trip.id,
+      num_seats: numSeats,
+      total_aed: totalAmount,
+      trip_type: trip.trip_type,
+    }, undefined, sessionId);
 
     // Atomic seat reservation — locks trip row, checks availability, inserts booking
     const { data: bookingId, error: reserveErr } = await supabase.rpc('reserve_seat', {
@@ -396,6 +404,8 @@ function bookingPage(data: {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Book: ${data.tripTypeLabel} Trip</title>
+  ${gtagScript()}
+  <script>if(typeof gtag==='function'){gtag('event','view_item',{currency:'AED',value:${Number(data.priceAed)},items:[{item_name:'${data.tripTypeLabel} Trip',price:${Number(data.priceAed)},quantity:1}]});}</script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f0f4f8; color: #1a1a2e; padding: 20px; }
@@ -509,12 +519,15 @@ function successPageWithDetails(data: {
     ? `<a href="${data.locationUrl}" class="btn-secondary" target="_blank">Open Location</a>`
     : '';
 
+  const totalVal = data.totalAmount ? Number(data.totalAmount) : 0;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Booked!</title>
+  ${gtagScript()}
+  <script>if(typeof gtag==='function'){gtag('event','purchase',{currency:'AED',value:${totalVal},transaction_id:'${data.bookingShortId || ''}',items:[{item_name:'${data.tripTypeLabel} Trip',price:${totalVal},quantity:${data.numSeats}}]});}</script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f0f4f8; color: #1a1a2e; padding: 20px; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
@@ -572,6 +585,7 @@ function successPageBasic(): string {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Booked!</title>
+  ${gtagScript()}
   <style>
     body { font-family: -apple-system, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f0f4f8; padding: 20px; }
     .card { text-align: center; background: white; padding: 40px; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); max-width: 400px; }
@@ -593,14 +607,14 @@ function successPageBasic(): string {
 function tripNotFoundPage(): string {
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Not Found</title>
-<style>body{font-family:-apple-system,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#f0f4f8;padding:20px}.card{text-align:center;background:white;padding:40px;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.1);max-width:400px}h1{color:#e63946}</style></head>
+${gtagScript()}<style>body{font-family:-apple-system,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#f0f4f8;padding:20px}.card{text-align:center;background:white;padding:40px;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.1);max-width:400px}h1{color:#e63946}</style></head>
 <body><div class="card"><h1>Trip Not Found</h1><p>This trip may have been cancelled or the link is invalid.</p></div></body></html>`;
 }
 
 function fullPage(trip: any): string {
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fully Booked</title>
-<style>body{font-family:-apple-system,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#f0f4f8;padding:20px}.card{text-align:center;background:white;padding:40px;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.1);max-width:400px}h1{color:#e63946}</style></head>
+${gtagScript()}<style>body{font-family:-apple-system,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#f0f4f8;padding:20px}.card{text-align:center;background:white;padding:40px;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.1);max-width:400px}h1{color:#e63946}</style></head>
 <body><div class="card"><h1>Fully Booked!</h1><p>All ${trip.max_seats} seats are taken. Contact the captain for the next trip.</p></div></body></html>`;
 }
 

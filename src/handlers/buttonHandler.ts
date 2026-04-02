@@ -4,6 +4,7 @@ import { supabase } from '../db/supabase';
 import { getTripById } from '../services/trips';
 import { createPaymentIntent, createPaymentLink } from '../services/stripe';
 import { notifyPaymentLinkSent } from '../services/notifications';
+import { trackEvent } from '../services/analytics';
 
 export async function handleButton(
   from: string,
@@ -15,6 +16,7 @@ export async function handleButton(
 
   if (buttonId.startsWith('booking_intent:')) {
     const tripId = buttonId.replace('booking_intent:', '');
+    trackEvent('wa_booking_button_tap', { trip_id: tripId }, from);
     await handleBookingIntent(from, tripId, message);
   }
 }

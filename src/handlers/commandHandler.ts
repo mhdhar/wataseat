@@ -9,6 +9,7 @@ import { cancelAllForTrip } from '../jobs/thresholdCheck';
 import { Redis } from '@upstash/redis';
 import { createOnboardingLink } from '../services/stripeConnect';
 import { startEditWizard } from './editWizardHandler';
+import { trackEvent } from '../services/analytics';
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -25,6 +26,7 @@ export async function handleCommand(
   const args = parts.slice(1);
 
   logger.info({ from, command, args }, 'Command received');
+  trackEvent('wa_command', { command_name: command }, from);
 
   switch (command) {
     case '/help':

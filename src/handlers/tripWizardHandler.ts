@@ -3,6 +3,7 @@ import { sendTextMessage, sendListMessage, sendImageMessage } from '../services/
 import { supabase } from '../db/supabase';
 import { Captain, TripType, TripWizardState } from '../types';
 import { createTrip } from '../services/trips';
+import { trackEvent } from '../services/analytics';
 
 import { Redis } from '@upstash/redis';
 
@@ -448,6 +449,13 @@ export async function handleTripWizardStep(
           await sendTextMessage(from, shareMsg);
         }
 
+        trackEvent('wa_trip_created', {
+          trip_id: trip.id,
+          trip_type: state.trip_type || 'fishing',
+          max_seats: state.max_seats!,
+          threshold: state.threshold!,
+          price_aed: state.price_per_person_aed!,
+        }, from);
         logger.info({ tripId: trip.id, captainId: state.captain_id }, 'Trip created via wizard');
       } else {
         await redis.del(`trip_wizard:${from}`);

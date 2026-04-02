@@ -8,6 +8,7 @@ import { sendTextMessage } from '../services/whatsapp';
 import { notifyBookingAuthorized, notifyThresholdReached, notifyTripCancelled } from '../services/notifications';
 import { getTripSeatOccupancy } from '../services/bookings';
 import { SUPPORT_CONTACT } from '../config';
+import { trackEvent } from '../services/analytics';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const redis = new Redis({
@@ -100,6 +101,11 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
       }
 
       logger.info({ bookingId, tripId, piId: pi.id }, 'Payment authorized');
+      trackEvent('booking_authorized', {
+        booking_id: bookingId,
+        trip_id: tripId,
+        amount_aed: pi.amount / 100,
+      });
 
       // Update booking
       await supabase
@@ -157,6 +163,11 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
         const occupancy = await getTripSeatOccupancy(tripId);
         if (occupancy.total_occupied_seats >= trip.threshold && trip.status === 'open') {
           logger.info({ tripId, currentCount: occupancy.total_occupied_seats, threshold: trip.threshold }, 'Threshold reached — capturing all');
+          trackEvent('threshold_reached', {
+            trip_id: tripId,
+            bookings: occupancy.total_occupied_seats,
+            threshold: trip.threshold,
+          });
           await captureAllForTrip(tripId);
         }
       }
@@ -167,6 +178,11 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
       const pi = event.data.object as Stripe.PaymentIntent;
       const bookingId = pi.metadata.booking_id;
       const tripId = pi.metadata.trip_id;
+
+      trackEvent('payment_failed', {
+        booking_id: bookingId || '',
+        trip_id: tripId || '',
+      });
 
       if (bookingId) {
         await supabase
