@@ -58,7 +58,11 @@ router.get('/:shortId', async (req: Request, res: Response) => {
     }
 
     const occupancy = await getTripSeatOccupancy(trip.id);
-    const seatsLeft = trip.max_seats - occupancy.total_occupied_seats;
+    // Display seats based on real payments only (authorized + confirmed), not pending holds
+    const confirmedSeats = occupancy.authorized_seats + occupancy.confirmed_seats;
+    const seatsLeft = trip.max_seats - confirmedSeats;
+    const tripConfirmed = confirmedSeats >= trip.threshold;
+    const seatsNeeded = Math.max(0, trip.threshold - confirmedSeats);
 
     if (seatsLeft <= 0) {
       res.status(200).send(fullPage(trip));
@@ -87,6 +91,9 @@ router.get('/:shortId', async (req: Request, res: Response) => {
       captainName,
       vesselImageUrl: (trip as any).captains?.vessel_image_url || null,
       checkoutUrl: `${baseUrl}/book/${shortId}/checkout`,
+      tripConfirmed,
+      seatsNeeded,
+      confirmedSeats,
     }));
   } catch (err) {
     logger.error({ err, shortId }, 'Error loading booking page');
@@ -379,6 +386,9 @@ function bookingPage(data: {
   captainName: string;
   vesselImageUrl: string | null;
   checkoutUrl: string;
+  tripConfirmed: boolean;
+  seatsNeeded: number;
+  confirmedSeats: number;
 }): string {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -400,6 +410,12 @@ function bookingPage(data: {
     .value { font-weight: 600; }
     .price { font-size: 28px; font-weight: 700; color: #0077b6; text-align: center; padding: 16px; }
     .price small { font-size: 14px; color: #666; font-weight: 400; }
+    .status-banner { padding: 14px 24px; font-size: 14px; text-align: center; line-height: 1.5; font-weight: 500; }
+    .status-banner.confirmed { background: #d4edda; color: #155724; }
+    .status-banner.pending { background: #fff3cd; color: #856404; }
+    .status-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    .status-badge.confirmed { background: #28a745; color: white; }
+    .status-badge.pending { background: #ffc107; color: #856404; }
     .note { background: #f0f9ff; padding: 12px 24px; font-size: 13px; color: #0077b6; text-align: center; }
     .btn-wrap { padding: 20px 24px; }
     .btn { display: block; width: 100%; padding: 16px; background: #0077b6; color: white; border: none; border-radius: 12px; font-size: 17px; font-weight: 600; cursor: pointer; text-align: center; text-decoration: none; }
@@ -414,10 +430,14 @@ function bookingPage(data: {
   <form action="${data.checkoutUrl}" method="POST">
     <div class="card">
       <div class="header">
-        <h1>${data.tripTypeLabel} Trip</h1>
+        <h1>${data.tripTypeLabel} Trip <span class="status-badge ${data.tripConfirmed ? 'confirmed' : 'pending'}">${data.tripConfirmed ? 'Confirmed' : 'Pending'}</span></h1>
         <p>by ${data.captainName}</p>
       </div>
       ${data.vesselImageUrl ? `<img src="${data.vesselImageUrl}" alt="Vessel" style="width:100%; max-height:220px; object-fit:cover;">` : ''}
+      ${data.tripConfirmed
+        ? `<div class="status-banner confirmed">Trip confirmed! ${data.confirmedSeats} people booked. Your card will be charged immediately.</div>`
+        : `<div class="status-banner pending">${data.seatsNeeded} more booking${data.seatsNeeded !== 1 ? 's' : ''} needed to confirm this trip (${data.confirmedSeats}/${data.threshold} so far)</div>`
+      }
       <div class="details">
         <div class="row"><span class="label">Date</span><span class="value">${data.formattedDate}</span></div>
         <div class="row"><span class="label">Time</span><span class="value">${data.formattedTime}${data.durationHours ? ` (${data.durationHours}h)` : ''}</span></div>
@@ -432,7 +452,10 @@ function bookingPage(data: {
         </select>
         <span id="total" class="value" style="font-size:16px">Total: AED ${Number(data.priceAed).toFixed(2)}</span>
       </div>` : '<input type="hidden" name="seats" value="1">'}
-      <div class="note">Your card is only charged if ${data.threshold}+ people book. Otherwise the hold is released automatically.</div>
+      <div class="note">${data.tripConfirmed
+        ? 'Your card will be charged once you complete the payment.'
+        : `Your card is only held — not charged — until ${data.threshold} people book. If the trip doesn't confirm, the hold is released automatically.`
+      }</div>
       <div class="btn-wrap">
         <button type="submit" class="btn">Book & Pay Securely</button>
       </div>
